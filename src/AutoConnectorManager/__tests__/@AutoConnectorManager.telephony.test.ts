@@ -155,7 +155,7 @@ describe('AutoConnectorManager - Telephony', () => {
       expect(connectSpy).toHaveBeenCalled();
     });
 
-    it('при успешной проверке запускает start в случае, если соединение было отключено', async () => {
+    it('при успешной проверке запускает activate в случае, если соединение было отключено', async () => {
       jest
         .spyOn(PingServerIfNotActiveCallRequester.prototype, 'start')
         .mockImplementation(({ onFailRequest }) => {
@@ -186,7 +186,8 @@ describe('AutoConnectorManager - Telephony', () => {
 
       await manager.wait('limit-reached-attempts');
 
-      const startSpy = jest.spyOn(manager, 'start');
+      // @ts-expect-error - доступ к приватному методу
+      const activateSpy = jest.spyOn(manager, 'activate');
 
       expect(disconnectSpy).toHaveBeenCalled();
       expect(sipConnector.connectionManager.isFailed).toBe(false);
@@ -195,7 +196,7 @@ describe('AutoConnectorManager - Telephony', () => {
 
       await manager.wait('before-attempt');
 
-      expect(startSpy).toHaveBeenCalledTimes(1);
+      expect(activateSpy).toHaveBeenCalledTimes(1);
     });
 
     describe('onBeforeRequest', () => {
