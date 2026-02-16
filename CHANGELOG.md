@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [25.3.0](https://github.com/Krivega/sip-connector/compare/v25.2.5...v25.3.0) (2026-02-16)
+
+### Features
+
+- add purgatory state to call management and update related logic ([3e70998](https://github.com/Krivega/sip-connector/commit/3e7099833171bbdcb5f6c6e2a952d89c5bff4111))
+
 ### [25.2.5](https://github.com/Krivega/sip-connector/compare/v25.2.4...v25.2.5) (2026-02-16)
 
 ### Bug Fixes
