@@ -81,12 +81,12 @@ stateDiagram-v2
 
 ## Доменные статусы и события
 
-| Домен        | Статусы                                                                                               | Источники событий                                                                                                                                                                                     | Доменные события                                                                                                                         |
-| :----------- | :---------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
-| Connection   | `idle`, `preparing`, `connecting`, `connected`, `registered`, `established`, `disconnected`, `failed` | `ConnectionManager.events` (`connect-started`, `connecting`, `connect-parameters-resolve-success`, `connected`, `registered`, `unregistered`, `disconnected`, `registrationFailed`, `connect-failed`) | `START_CONNECT`, `START_INIT_UA`, `UA_CONNECTED`, `UA_REGISTERED`, `UA_UNREGISTERED`, `UA_DISCONNECTED`, `CONNECTION_FAILED`, `RESET`    |
-| Call         | `idle`, `connecting`, `inRoom`, `failed`                                                              | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.FAILED`, `CALL.RESET`                                                   |
-| Incoming     | `idle`, `ringing`, `consumed`, `declined`, `terminated`, `failed`                                     | `IncomingCallManager.events` (`incomingCall`, `declinedIncomingCall`, `terminatedIncomingCall`, `failedIncomingCall`) + синтетика при ответе на входящий                                              | `INCOMING.RINGING`, `INCOMING.CONSUMED`, `INCOMING.DECLINED`, `INCOMING.TERMINATED`, `INCOMING.FAILED`, `INCOMING.CLEAR`                 |
-| Presentation | `idle`, `starting`, `active`, `stopping`, `failed`                                                    | `CallManager.events` (`presentation:start\|started\|end\|ended\|failed`), `ConnectionManager.events` (`disconnected`, `registrationFailed`, `connect-failed`)                                         | `SCREEN.STARTING`, `SCREEN.STARTED`, `SCREEN.ENDING`, `SCREEN.ENDED`, `SCREEN.FAILED`, `CALL.ENDED`, `CALL.FAILED`, `PRESENTATION.RESET` |
+| Домен        | Статусы                                                                                               | Источники событий                                                                                                                                                                                     | Доменные события                                                                                                                      |
+| :----------- | :---------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| Connection   | `idle`, `preparing`, `connecting`, `connected`, `registered`, `established`, `disconnected`, `failed` | `ConnectionManager.events` (`connect-started`, `connecting`, `connect-parameters-resolve-success`, `connected`, `registered`, `unregistered`, `disconnected`, `registrationFailed`, `connect-failed`) | `START_CONNECT`, `START_INIT_UA`, `UA_CONNECTED`, `UA_REGISTERED`, `UA_UNREGISTERED`, `UA_DISCONNECTED`, `CONNECTION_FAILED`, `RESET` |
+| Call         | `idle`, `connecting`, `inRoom`                                                                        | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`                                                               |
+| Incoming     | `idle`, `ringing`, `consumed`, `declined`, `terminated`, `failed`                                     | `IncomingCallManager.events` (`incomingCall`, `declinedIncomingCall`, `terminatedIncomingCall`, `failedIncomingCall`) + синтетика при ответе на входящий                                              | `INCOMING.RINGING`, `INCOMING.CONSUMED`, `INCOMING.DECLINED`, `INCOMING.TERMINATED`, `INCOMING.FAILED`, `INCOMING.CLEAR`              |
+| Presentation | `idle`, `starting`, `active`, `stopping`, `failed`                                                    | `CallManager.events` (`presentation:start\|started\|end\|ended\|failed`), `ConnectionManager.events` (`disconnected`, `registrationFailed`, `connect-failed`)                                         | `SCREEN.STARTING`, `SCREEN.STARTED`, `SCREEN.ENDING`, `SCREEN.ENDED`, `SCREEN.FAILED`, `PRESENTATION.RESET`                           |
 
 ## API для клиентов
 
@@ -99,7 +99,7 @@ stateDiagram-v2
 ## Инварианты и гварды
 
 - `presentation` может быть `active` только если `call` в `inRoom`.
-- `incoming` сбрасывается в `idle` при сбросе/завершении звонка (`CALL.RESET`, `CALL.FAILED`).
+- `incoming` сбрасывается в `idle` при сбросе/завершении звонка (`CALL.RESET`; событие `ended` или `failed` приводит к CALL.RESET).
 - `connection` `failed` / `disconnected` приводит к сбросу `call` и `presentation` → `idle`.
 
 ## Детальное описание машин состояний
@@ -144,20 +144,17 @@ stateDiagram-v2
 - Внутренний компонент CallManager
 - Управление состояниями звонка через XState
 - Валидация переходов с предотвращением недопустимых операций (проверка `snapshot.can(event)` перед отправкой)
-- Типобезопасная обработка ошибок (error: Error в контексте FAILED)
-- События: `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.FAILED`, `CALL.RESET`
+- События: `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`. Событие `failed` от CallManager.events приводит к отправке `CALL.RESET` (переход в IDLE).
 - Публичный API:
-  - Геттеры состояний: `isIdle`, `isConnecting`, `isInRoom`, `isFailed`
+  - Геттеры состояний: `isIdle`, `isConnecting`, `isInRoom`
   - Комбинированные геттеры: `isPending` (connecting), `isActive` (inRoom)
-  - Геттер ошибки: `error`
-  - Методы: `reset()`, `send(event)`, `subscribeToApiEvents(apiManager)` для привязки к API (enter-room, conference:participant-token-issued)
+  - Геттер контекста: `inRoomContext`. Методы: `reset()`, `send(event)`, `subscribeToApiEvents(apiManager)` для привязки к API (enter-room, conference:participant-token-issued)
 - Корректный граф переходов:
   - IDLE → CONNECTING (CALL.CONNECTING)
-  - CONNECTING → IN_ROOM (при получении room + participantName и token/conference/participant через CALL.ENTER_ROOM и CALL.TOKEN_ISSUED)
-  - CONNECTING → FAILED (CALL.FAILED), CONNECTING → IDLE (CALL.RESET)
-  - IN_ROOM → IDLE (CALL.RESET), IN_ROOM → FAILED (CALL.FAILED)
-  - FAILED → IDLE (CALL.RESET), FAILED → CONNECTING (CALL.CONNECTING)
-- Внутреннее состояние EVALUATE: переход в IN_ROOM/CONNECTING/FAILED/IDLE по контексту после действий
+  - CONNECTING → IN_ROOM (при получении room + participantName и token через CALL.ENTER_ROOM и CALL.TOKEN_ISSUED)
+  - CONNECTING → IDLE (CALL.RESET; в т.ч. при событии `ended` или `failed`)
+  - IN_ROOM → IDLE (CALL.RESET)
+- Внутреннее состояние EVALUATE: переход в IN_ROOM/CONNECTING/IDLE по контексту после действий
 - Логирование недопустимых переходов через console.warn
 - **Зависимость для перевода в зрители**: запуск RecvSession (и вызов sendOffer) возможен только при наличии токена (состояние IN_ROOM). При гонке событий (`participant:move-request-to-spectators-with-audio-id` приходит до `conference:participant-token-issued`) CallManager использует DeferredCommandRunner: команда откладывается и выполняется при переходе в IN_ROOM.
 
@@ -174,11 +171,10 @@ stateDiagram-v2
   - Методы управления: `reset()`
 - Корректный граф переходов:
   - IDLE → STARTING → ACTIVE → STOPPING → IDLE
-  - Переходы в FAILED из STARTING/ACTIVE/STOPPING (через SCREEN.FAILED или CALL.FAILED)
+  - Переходы в FAILED из STARTING/ACTIVE/STOPPING (через SCREEN.FAILED или при сбросе звонка — событие `failed`)
   - Переход RESET: FAILED → IDLE
   - Убран нелогичный переход IDLE → FAILED (презентация не может зафейлиться до старта)
-  - Прерывание через CALL.ENDED из любого активного состояния (STARTING/ACTIVE/STOPPING)
-  - Фейл звонка (CALL.FAILED) обрабатывается во всех активных состояниях
+  - Прерывание при сбросе звонка (ended/failed → CALL.RESET) из любого активного состояния (STARTING/ACTIVE/STOPPING)
 - Автоматическое создание Error из не-Error значений (JSON.stringify для объектов)
 - Полное логирование всех переходов состояний и недопустимых операций через console.warn
 
@@ -218,7 +214,7 @@ stateDiagram-v2
    - call IDLE → `READY_TO_CALL`
    - call CONNECTING → `CALL_CONNECTING`
    - call IN_ROOM → `CALL_ACTIVE`
-   - call FAILED → `CALL_FAILED`
+   - неизвестный call status → fallback `READY_TO_CALL`
 
 ### Состояния ESystemStatus
 
@@ -230,7 +226,6 @@ stateDiagram-v2
 | `CALL_CONNECTING`   | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                   |
 | `CALL_ACTIVE`       | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM                      |
 | `CONNECTION_FAILED` | Ошибка соединения                        | connection: FAILED                                          |
-| `CALL_FAILED`       | Ошибка звонка                            | connection: ESTABLISHED, call: FAILED                       |
 
 ### Использование
 

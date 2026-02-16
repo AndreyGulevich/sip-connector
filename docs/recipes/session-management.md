@@ -83,7 +83,7 @@ unsubscribe(); // Когда больше не нужно слушать
 ## Доступные селекторы
 
 - `selectConnectionStatus` - статус соединения
-- `selectCallStatus` - статус звонка (ECallStatus: IDLE, CONNECTING, IN_ROOM, FAILED)
+- `selectCallStatus` - статус звонка (ECallStatus: IDLE, CONNECTING, IN_ROOM)
 - `selectIncomingStatus` - статус входящего звонка
 - `selectIncomingRemoteCaller` - данные входящего звонка
 - `selectPresentationStatus` - статус презентации
@@ -100,7 +100,6 @@ unsubscribe(); // Когда больше не нужно слушать
 - `CALL_CONNECTING` - идет установка звонка (connection: ESTABLISHED, call: CONNECTING)
 - `CALL_ACTIVE` - звонок активен (connection: ESTABLISHED, call: IN_ROOM)
 - `CONNECTION_FAILED` - ошибка соединения (connection: FAILED)
-- `CALL_FAILED` - ошибка звонка (connection: ESTABLISHED, call: FAILED)
 
 Этот селектор позволяет клиенту однозначно определить текущее состояние системы без необходимости анализировать комбинации состояний Connection и Call вручную.
 

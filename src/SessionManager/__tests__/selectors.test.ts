@@ -81,12 +81,7 @@ describe('sessionSelectors', () => {
     });
 
     it('should return different call statuses', () => {
-      const statuses = [
-        ECallStatus.IDLE,
-        ECallStatus.CONNECTING,
-        ECallStatus.IN_ROOM,
-        ECallStatus.FAILED,
-      ];
+      const statuses = [ECallStatus.IDLE, ECallStatus.CONNECTING, ECallStatus.IN_ROOM];
 
       statuses.forEach((status) => {
         const snapshot = createMockSnapshot({
@@ -245,7 +240,7 @@ describe('sessionSelectors', () => {
     });
 
     it('should return false when call status is not IN_ROOM, ACCEPTED or CONFIRMED', () => {
-      const nonInCallStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING, ECallStatus.FAILED];
+      const nonInCallStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
       nonInCallStatuses.forEach((status) => {
         const snapshot = createMockSnapshot({
@@ -334,11 +329,7 @@ describe('sessionSelectors', () => {
 
     it('should return DISCONNECTED for IDLE/DISCONNECTED connection unless call is IN_ROOM', () => {
       const connectionStatuses = [EConnectionStatus.IDLE, EConnectionStatus.DISCONNECTED];
-      const callStatusesForDisconnected = [
-        ECallStatus.IDLE,
-        ECallStatus.CONNECTING,
-        ECallStatus.FAILED,
-      ];
+      const callStatusesForDisconnected = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
       connectionStatuses.forEach((connectionStatus) => {
         callStatusesForDisconnected.forEach((callStatus) => {
@@ -379,7 +370,7 @@ describe('sessionSelectors', () => {
     });
 
     it('should return CONNECTION_FAILED for FAILED connection unless call is IN_ROOM', () => {
-      const callStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING, ECallStatus.FAILED];
+      const callStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
       callStatuses.forEach((callStatus) => {
         const snapshot = createMockSnapshot({
@@ -450,7 +441,7 @@ describe('sessionSelectors', () => {
         EConnectionStatus.CONNECTED,
         EConnectionStatus.REGISTERED,
       ];
-      const callStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING, ECallStatus.FAILED];
+      const callStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
       connectionStatuses.forEach((connectionStatus) => {
         callStatuses.forEach((callStatus) => {
@@ -501,19 +492,6 @@ describe('sessionSelectors', () => {
       });
 
       expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_ACTIVE);
-    });
-
-    it('should return CALL_FAILED when connection is ESTABLISHED and call is FAILED', () => {
-      const snapshot = createMockSnapshot({
-        connection: {
-          value: EConnectionStatus.ESTABLISHED,
-        } as never,
-        call: {
-          value: ECallStatus.FAILED,
-        } as never,
-      });
-
-      expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_FAILED);
     });
 
     it('should return READY_TO_CALL as fallback for unknown call status when connection is ESTABLISHED', () => {

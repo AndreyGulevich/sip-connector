@@ -117,7 +117,7 @@
 - **DeferredCommandRunner** - паттерн отложенной команды для запуска RecvSession
   - Устраняет гонку событий: `participant:move-request-to-spectators-with-audio-id` может прийти раньше `conference:participant-token-issued`
   - При отсутствии токена (состояние CONNECTING) команда «запустить RecvSession» сохраняется и подписывается на переход CallStateMachine в IN_ROOM
-  - При переходе в IN_ROOM команда выполняется (вызывается startRecvSession); при переходе в FAILED/IDLE — отменяется без выполнения
+  - При переходе в IN_ROOM команда выполняется (вызывается startRecvSession); при переходе в IDLE (ended/failed → CALL.RESET) — отменяется без выполнения
   - Методы: `set(command)` — отложить команду, `cancel()` — отменить подписку и очистить команду
   - Вызов `cancel()` при смене роли с зрителя на участника и при reset CallManager
 

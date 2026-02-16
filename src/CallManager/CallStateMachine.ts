@@ -2,7 +2,6 @@ import { assign, setup } from 'xstate';
 
 import { BaseStateMachine } from '@/tools/BaseStateMachine';
 
-import type { EndEvent } from '@krivega/jssip';
 import type { TApiManagerEvents } from '@/ApiManager';
 import type { TEvents } from './events';
 
@@ -10,7 +9,6 @@ export enum EState {
   IDLE = 'call:idle',
   CONNECTING = 'call:connecting',
   IN_ROOM = 'call:inRoom',
-  FAILED = 'call:failed',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -28,16 +26,12 @@ export type TInRoomContext = TConnectingContext & {
   participant: string;
 };
 
-type TFailedContext = {
-  error: EndEvent;
-};
-type TContext = TIdleContext | TConnectingContext | TInRoomContext | TFailedContext;
+type TContext = TIdleContext | TConnectingContext | TInRoomContext;
 
 type TCallEvent =
   | { type: 'CALL.CONNECTING'; number: string; answer: boolean }
   | { type: 'CALL.ENTER_ROOM'; room: string; participantName: string; token?: string }
   | { type: 'CALL.TOKEN_ISSUED'; token: string }
-  | { type: 'CALL.FAILED'; error: EndEvent }
   | { type: 'CALL.RESET' };
 
 const EVALUATE = 'evaluate' as const;
@@ -120,16 +114,6 @@ const callMachine = setup({
         token: event.token,
       };
     }),
-    setError: assign(({ event, context }) => {
-      if (event.type !== 'CALL.FAILED') {
-        return context;
-      }
-
-      return {
-        ...clearCallContext(),
-        error: event.error instanceof Error ? event.error : new Error(JSON.stringify(event.error)),
-      };
-    }),
     reset: assign(clearCallContext()),
   },
 }).createMachine({
@@ -155,10 +139,6 @@ const callMachine = setup({
           target: EVALUATE,
           actions: 'setTokenInfo',
         },
-        'CALL.FAILED': {
-          target: EVALUATE,
-          actions: 'setError',
-        },
         'CALL.RESET': {
           target: EVALUATE,
           actions: 'reset',
@@ -174,22 +154,6 @@ const callMachine = setup({
         'CALL.TOKEN_ISSUED': {
           target: EVALUATE,
           actions: 'setTokenInfo',
-        },
-        'CALL.FAILED': {
-          target: EVALUATE,
-          actions: 'setError',
-        },
-        'CALL.RESET': {
-          target: EVALUATE,
-          actions: 'reset',
-        },
-      },
-    },
-    [EState.FAILED]: {
-      on: {
-        'CALL.CONNECTING': {
-          target: EVALUATE,
-          actions: 'setConnecting',
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -209,12 +173,6 @@ const callMachine = setup({
           target: EState.CONNECTING,
           guard: ({ context }) => {
             return hasConnectingContext(context);
-          },
-        },
-        {
-          target: EState.FAILED,
-          guard: ({ context }) => {
-            return 'error' in context;
           },
         },
         {
@@ -253,26 +211,12 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
     return hasInRoomContext(context) ? context : undefined;
   }
 
-  public get isFailed(): boolean {
-    return this.state === EState.FAILED;
-  }
-
   public get isActive(): boolean {
     return this.isInRoom;
   }
 
   public get isPending(): boolean {
     return this.isConnecting;
-  }
-
-  public get error() {
-    const { context } = this;
-
-    if ('error' in context) {
-      return context.error;
-    }
-
-    return undefined;
   }
 
   public get number() {
@@ -340,8 +284,8 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
       }),
     );
     this.addSubscription(
-      events.on('failed', (event) => {
-        this.send({ type: 'CALL.FAILED', error: event });
+      events.on('failed', () => {
+        this.send({ type: 'CALL.RESET' });
       }),
     );
   }

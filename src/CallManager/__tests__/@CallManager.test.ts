@@ -504,7 +504,7 @@ describe('CallManager', () => {
       expect(mockRecvSession.instance).toBeUndefined();
     });
 
-    it('отменяет отложенную команду при переходе в FAILED до прихода токена', () => {
+    it('отменяет отложенную команду при failed до прихода токена (переход в IDLE)', () => {
       const { callManager: cm } = createManagers();
       const sendOffer = jest.fn().mockResolvedValue({} as RTCSessionDescription);
 
@@ -515,7 +515,7 @@ describe('CallManager', () => {
       } as TCallRoleSpectator['recvParams']);
 
       cm.events.trigger('failed', new Error('call failed') as unknown as EndEvent);
-      expect(cm.stateMachine.state).toBe('call:failed');
+      expect(cm.stateMachine.state).toBe('call:idle');
 
       expect(mockRecvSession.instance).toBeUndefined();
     });

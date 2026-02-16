@@ -107,7 +107,7 @@ class CallManager {
         return state === EState.IN_ROOM;
       },
       isCancelled: (state) => {
-        return state === EState.FAILED || state === EState.IDLE;
+        return state === EState.IDLE;
       },
       onExecute: (command) => {
         const token = getInRoomTokenOrThrow(this.stateMachine);

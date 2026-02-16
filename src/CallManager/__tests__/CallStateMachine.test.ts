@@ -2,7 +2,6 @@ import { createApiManagerEvents } from '@/ApiManager';
 import { CallStateMachine, EState } from '../CallStateMachine';
 import { createEvents } from '../events';
 
-import type { EndEvent } from '@krivega/jssip';
 import type { TApiManagerEvents } from '@/ApiManager';
 import type { TEventName, TEvents } from '../events';
 
@@ -63,38 +62,12 @@ describe('CallStateMachine', () => {
         expected: EState.CONNECTING,
       },
       {
-        title: 'CALL.FAILED из CONNECTING в FAILED',
-        arrange: () => {
-          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-        },
-        event: { type: 'CALL.FAILED', error: new Error('fail') as unknown as EndEvent },
-        expected: EState.FAILED,
-      },
-      {
         title: 'CALL.RESET из CONNECTING в IDLE',
         arrange: () => {
           machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
         },
         event: { type: 'CALL.RESET' },
         expected: EState.IDLE,
-      },
-      {
-        title: 'CALL.CONNECTING из FAILED возвращает в CONNECTING',
-        arrange: () => {
-          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-          machine.send({ type: 'CALL.FAILED', error: new Error('fail') as unknown as EndEvent });
-        },
-        event: { type: 'CALL.CONNECTING', number: '200', answer: true },
-        expected: EState.CONNECTING,
-      },
-      {
-        title: 'CALL.RESET из FAILED оставляет FAILED',
-        arrange: () => {
-          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-          machine.send({ type: 'CALL.FAILED', error: new Error('fail') as unknown as EndEvent });
-        },
-        event: { type: 'CALL.RESET' },
-        expected: EState.FAILED,
       },
     ];
 
@@ -127,7 +100,7 @@ describe('CallStateMachine', () => {
         title: 'ошибка звонка (start-call → failed)',
         steps: [
           { event: 'start-call', payload: connectPayload, expected: EState.CONNECTING },
-          { event: 'failed', expected: EState.FAILED },
+          { event: 'failed', expected: EState.IDLE },
         ],
       },
     ];
@@ -161,13 +134,6 @@ describe('CallStateMachine', () => {
       expect(machine.isInRoom).toBe(true);
     });
 
-    it('isFailed должен возвращать true только для FAILED', () => {
-      expect(machine.isFailed).toBe(false);
-      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      machine.send({ type: 'CALL.FAILED', error: new Error('fail') as unknown as EndEvent });
-      expect(machine.isFailed).toBe(true);
-    });
-
     it('isPending должен возвращать true только для CONNECTING', () => {
       expect(machine.isPending).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
@@ -199,10 +165,11 @@ describe('CallStateMachine', () => {
       expect(machine.inRoomContext).toBeUndefined();
     });
 
-    it('возвращает undefined в FAILED', () => {
+    it('возвращает undefined в IDLE после failed', () => {
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      machine.send({ type: 'CALL.FAILED', error: new Error('fail') as unknown as EndEvent });
+      events.trigger('failed', undefined as never);
 
+      expect(machine.state).toBe(EState.IDLE);
       expect(machine.inRoomContext).toBeUndefined();
     });
 
@@ -283,32 +250,6 @@ describe('CallStateMachine', () => {
       expect(machine.inRoomContext).toBeUndefined();
     });
   });
-
-  describe('Обработка ошибок', () => {
-    it('error должен быть undefined в начальном состоянии', () => {
-      expect(machine.error).toBeUndefined();
-    });
-
-    it('error должен сохранять Error при CALL.FAILED', () => {
-      const testError = new Error('Connection failed');
-
-      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      machine.send({ type: 'CALL.FAILED', error: testError as unknown as EndEvent });
-
-      expect(machine.state).toBe(EState.FAILED);
-      expect(machine.error).toBe(testError);
-      expect(machine.error?.message).toBe('Connection failed');
-    });
-
-    it('error должен конвертировать non-Error в Error', () => {
-      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      machine.send({ type: 'CALL.FAILED', error: 'String error' as unknown as EndEvent });
-
-      expect(machine.error).toBeInstanceOf(Error);
-      expect(machine.error?.message).toBe('"String error"');
-    });
-  });
-
   describe('Валидация переходов', () => {
     it('должен игнорировать недопустимые переходы с предупреждением', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
@@ -364,16 +305,13 @@ describe('CallStateMachine', () => {
       expect(machine.context).toEqual({});
     });
 
-    it('должен сохранять ошибку из события failed', () => {
+    it('должен переходить в IDLE при событии failed', () => {
       events.trigger('start-call', connectPayload);
 
-      const error = new Error('Call failed') as unknown as EndEvent;
+      events.trigger('failed', undefined as never);
 
-      events.trigger('failed', error as never);
-
-      expect(machine.state).toBe(EState.FAILED);
-      expect(machine.error).toBe(error);
-      expect(machine.context).toEqual({ error });
+      expect(machine.state).toBe(EState.IDLE);
+      expect(machine.context).toEqual({});
     });
   });
 
@@ -459,7 +397,6 @@ describe('CallStateMachine', () => {
                 setConnecting?: AssignAction;
                 setRoomInfo?: AssignAction;
                 setTokenInfo?: AssignAction;
-                setError?: AssignAction;
               };
             };
           };
@@ -496,16 +433,6 @@ describe('CallStateMachine', () => {
       const result = getSnapshot().machine.implementations.actions.setTokenInfo?.assignment({
         context,
         event: { type: 'CALL.ENTER_ROOM', room: 'r', participantName: 'p' },
-      });
-
-      expect(result).toBe(context);
-    });
-
-    it('setError: возвращает context при event.type !== CALL.FAILED', () => {
-      const context = {};
-      const result = getSnapshot().machine.implementations.actions.setError?.assignment({
-        context,
-        event: { type: 'CALL.RESET' },
       });
 
       expect(result).toBe(context);
