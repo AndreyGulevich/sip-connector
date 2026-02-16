@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [25.2.5](https://github.com/Krivega/sip-connector/compare/v25.2.4...v25.2.5) (2026-02-16)
+
+### Bug Fixes
+
+- remove FAILED state handling from CallStateMachine and related components ([2aec326](https://github.com/Krivega/sip-connector/commit/2aec3260f48ccda15f72ca4e85a9ea9829e95a75))
+
 ### [25.2.4](https://github.com/Krivega/sip-connector/compare/v25.2.3...v25.2.4) (2026-02-13)
 
 ### Bug Fixes
