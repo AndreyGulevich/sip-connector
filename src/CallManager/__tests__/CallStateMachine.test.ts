@@ -1,4 +1,5 @@
 import { createApiManagerEvents } from '@/ApiManager';
+import { PURGATORY_CONFERENCE_NUMBER } from '@/tools/hasPurgatory';
 import { CallStateMachine, EState } from '../CallStateMachine';
 import { createEvents } from '../events';
 
@@ -21,6 +22,7 @@ describe('CallStateMachine', () => {
   };
   const room1Payload = { room: 'room-1', participantName: 'User' };
   const room2Payload = { room: 'room-2', participantName: 'User2' };
+  const purgatoryPayload = { room: PURGATORY_CONFERENCE_NUMBER, participantName: 'User' };
 
   beforeEach(() => {
     apiManagerEvents = createApiManagerEvents();
@@ -62,9 +64,26 @@ describe('CallStateMachine', () => {
         expected: EState.CONNECTING,
       },
       {
+        title: 'CALL.ENTER_ROOM (purgatory) в CONNECTING переводит в PURGATORY',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+        },
+        event: { type: 'CALL.ENTER_ROOM', ...purgatoryPayload },
+        expected: EState.PURGATORY,
+      },
+      {
         title: 'CALL.RESET из CONNECTING в IDLE',
         arrange: () => {
           machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+        },
+        event: { type: 'CALL.RESET' },
+        expected: EState.IDLE,
+      },
+      {
+        title: 'CALL.RESET из PURGATORY в IDLE',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
         },
         event: { type: 'CALL.RESET' },
         expected: EState.IDLE,
@@ -129,21 +148,39 @@ describe('CallStateMachine', () => {
     it('isInRoom должен возвращать true только для IN_ROOM', () => {
       expect(machine.isInRoom).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      expect(machine.isInRoom).toBe(false);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.isInRoom).toBe(false);
       machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
       expect(machine.isInRoom).toBe(true);
+    });
+
+    it('isInPurgatory должен возвращать true только для PURGATORY', () => {
+      expect(machine.isInPurgatory).toBe(false);
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      expect(machine.isInPurgatory).toBe(false);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.isInPurgatory).toBe(true);
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.isInPurgatory).toBe(false);
     });
 
     it('isPending должен возвращать true только для CONNECTING', () => {
       expect(machine.isPending).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
       expect(machine.isPending).toBe(true);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.isPending).toBe(false);
     });
 
-    it('isActive должен возвращать true только для IN_ROOM', () => {
+    it('isActive должен возвращать true для IN_ROOM и PURGATORY', () => {
       expect(machine.isActive).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
       expect(machine.isActive).toBe(false);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.isActive).toBe(true);
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.isActive).toBe(true);
     });
   });
 
@@ -162,6 +199,14 @@ describe('CallStateMachine', () => {
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
       machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
 
+      expect(machine.inRoomContext).toBeUndefined();
+    });
+
+    it('возвращает undefined в PURGATORY', () => {
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+
+      expect(machine.state).toBe(EState.PURGATORY);
       expect(machine.inRoomContext).toBeUndefined();
     });
 
@@ -383,6 +428,87 @@ describe('CallStateMachine', () => {
         token: bearerToken,
       });
       expect(machine.inRoomContext?.token).toBe(bearerToken);
+    });
+
+    it('должен переходить в PURGATORY по enter-room с room purgatory без token', () => {
+      events.trigger('start-call', connectPayload);
+      apiManagerEvents.trigger('enter-room', purgatoryPayload);
+
+      expect(machine.state).toBe(EState.PURGATORY);
+      expect(machine.context).toMatchObject({
+        ...connectPayload,
+        ...purgatoryPayload,
+      });
+    });
+
+    it('должен переходить из PURGATORY в IN_ROOM при получении token', () => {
+      events.trigger('start-call', connectPayload);
+      apiManagerEvents.trigger('enter-room', purgatoryPayload);
+      expect(machine.state).toBe(EState.PURGATORY);
+
+      apiManagerEvents.trigger('conference:participant-token-issued', token1Payload);
+
+      expect(machine.state).toBe(EState.IN_ROOM);
+      expect(machine.inRoomContext?.token).toBe(token1Context.token);
+    });
+
+    it('должен переходить из PURGATORY в IN_ROOM при enter-room с bearerToken', () => {
+      const bearerToken = 'jwt-after-purgatory';
+
+      events.trigger('start-call', connectPayload);
+      apiManagerEvents.trigger('enter-room', purgatoryPayload);
+      expect(machine.state).toBe(EState.PURGATORY);
+
+      apiManagerEvents.trigger('enter-room', { ...room1Payload, bearerToken });
+
+      expect(machine.state).toBe(EState.IN_ROOM);
+      expect(machine.inRoomContext?.token).toBe(bearerToken);
+    });
+  });
+
+  describe('Переходы PURGATORY ↔ IN_ROOM', () => {
+    it('PURGATORY -> IN_ROOM: по CALL.TOKEN_ISSUED', () => {
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.state).toBe(EState.PURGATORY);
+
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+
+      expect(machine.state).toBe(EState.IN_ROOM);
+      expect(machine.inRoomContext?.token).toBe(token1Context.token);
+      expect(machine.inRoomContext?.room).toBe(PURGATORY_CONFERENCE_NUMBER);
+    });
+
+    it('PURGATORY -> IN_ROOM: по CALL.ENTER_ROOM с bearerToken', () => {
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.state).toBe(EState.PURGATORY);
+
+      machine.send({
+        type: 'CALL.ENTER_ROOM',
+        ...room1Payload,
+        token: 'jwt-enter-room',
+      });
+
+      expect(machine.state).toBe(EState.IN_ROOM);
+      expect(machine.inRoomContext?.token).toBe('jwt-enter-room');
+      expect(machine.inRoomContext?.room).toBe(room1Payload.room);
+    });
+
+    it('IN_ROOM -> PURGATORY: по CALL.ENTER_ROOM с room purgatory без token', () => {
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.state).toBe(EState.IN_ROOM);
+
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+
+      expect(machine.state).toBe(EState.PURGATORY);
+      expect(machine.context).toMatchObject({
+        ...connectPayload,
+        ...purgatoryPayload,
+      });
+      expect(machine.inRoomContext).toBeUndefined();
     });
   });
 

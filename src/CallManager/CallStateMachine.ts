@@ -1,6 +1,7 @@
 import { assign, setup } from 'xstate';
 
 import { BaseStateMachine } from '@/tools/BaseStateMachine';
+import hasPurgatory from '@/tools/hasPurgatory';
 
 import type { TApiManagerEvents } from '@/ApiManager';
 import type { TEvents } from './events';
@@ -8,6 +9,7 @@ import type { TEvents } from './events';
 export enum EState {
   IDLE = 'call:idle',
   CONNECTING = 'call:connecting',
+  PURGATORY = 'call:purgatory',
   IN_ROOM = 'call:inRoom',
 }
 
@@ -18,6 +20,11 @@ type TConnectingContext = {
   answer: boolean;
 };
 
+export type TPurgatoryContext = TConnectingContext & {
+  room: string;
+  participantName: string;
+};
+
 export type TInRoomContext = TConnectingContext & {
   room: string;
   participantName: string;
@@ -26,7 +33,7 @@ export type TInRoomContext = TConnectingContext & {
   participant: string;
 };
 
-type TContext = TIdleContext | TConnectingContext | TInRoomContext;
+type TContext = TIdleContext | TConnectingContext | TPurgatoryContext | TInRoomContext;
 
 type TCallEvent =
   | { type: 'CALL.CONNECTING'; number: string; answer: boolean }
@@ -54,6 +61,16 @@ const hasRoomContext = (context: TContext) => {
 
 const hasTokenContext = (context: TContext) => {
   return 'token' in context && isNonEmptyString(context.token);
+};
+
+const hasPurgatoryContext = (context: TContext): context is TPurgatoryContext => {
+  return (
+    hasConnectingContext(context) &&
+    hasRoomContext(context) &&
+    !hasTokenContext(context) &&
+    'room' in context &&
+    hasPurgatory(context.room)
+  );
 };
 
 const hasInRoomContext = (context: TContext): context is TInRoomContext => {
@@ -101,6 +118,8 @@ const callMachine = setup({
 
       if (event.token !== undefined) {
         nextContext.token = event.token;
+      } else if (hasPurgatory(event.room)) {
+        nextContext.token = undefined;
       }
 
       return nextContext;
@@ -170,6 +189,12 @@ const callMachine = setup({
           },
         },
         {
+          target: EState.PURGATORY,
+          guard: ({ context }) => {
+            return hasPurgatoryContext(context);
+          },
+        },
+        {
           target: EState.CONNECTING,
           guard: ({ context }) => {
             return hasConnectingContext(context);
@@ -179,6 +204,22 @@ const callMachine = setup({
           target: EState.IDLE,
         },
       ],
+    },
+    [EState.PURGATORY]: {
+      on: {
+        'CALL.ENTER_ROOM': {
+          target: EVALUATE,
+          actions: 'setRoomInfo',
+        },
+        'CALL.TOKEN_ISSUED': {
+          target: EVALUATE,
+          actions: 'setTokenInfo',
+        },
+        'CALL.RESET': {
+          target: EVALUATE,
+          actions: 'reset',
+        },
+      },
     },
   },
 });
@@ -200,6 +241,10 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
     return this.state === EState.CONNECTING;
   }
 
+  public get isInPurgatory(): boolean {
+    return this.state === EState.PURGATORY;
+  }
+
   public get isInRoom(): boolean {
     return this.state === EState.IN_ROOM;
   }
@@ -212,7 +257,7 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
   }
 
   public get isActive(): boolean {
-    return this.isInRoom;
+    return this.isInRoom || this.isInPurgatory;
   }
 
   public get isPending(): boolean {

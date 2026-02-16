@@ -36,7 +36,7 @@ const selectPresentationStatus = (snapshot: TSessionSnapshot): EPresentationStat
 const selectIsInCall = (snapshot: TSessionSnapshot): boolean => {
   const status = selectCallStatus(snapshot);
 
-  return status === ECallStatus.IN_ROOM;
+  return status === ECallStatus.IN_ROOM || status === ECallStatus.PURGATORY;
 };
 
 /**
@@ -47,7 +47,7 @@ const selectSystemStatus = (snapshot: TSessionSnapshot): ESystemStatus => {
   const callStatus = selectCallStatus(snapshot);
 
   // В активном звонке общий статус всегда CALL_ACTIVE независимо от connection/incoming/presentation
-  if (callStatus === ECallStatus.IN_ROOM) {
+  if (callStatus === ECallStatus.IN_ROOM || callStatus === ECallStatus.PURGATORY) {
     return ESystemStatus.CALL_ACTIVE;
   }
 

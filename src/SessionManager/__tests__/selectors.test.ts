@@ -81,7 +81,12 @@ describe('sessionSelectors', () => {
     });
 
     it('should return different call statuses', () => {
-      const statuses = [ECallStatus.IDLE, ECallStatus.CONNECTING, ECallStatus.IN_ROOM];
+      const statuses = [
+        ECallStatus.IDLE,
+        ECallStatus.CONNECTING,
+        ECallStatus.PURGATORY,
+        ECallStatus.IN_ROOM,
+      ];
 
       statuses.forEach((status) => {
         const snapshot = createMockSnapshot({
@@ -239,7 +244,17 @@ describe('sessionSelectors', () => {
       expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
     });
 
-    it('should return false when call status is not IN_ROOM, ACCEPTED or CONFIRMED', () => {
+    it('should return true when call status is PURGATORY', () => {
+      const snapshot = createMockSnapshot({
+        call: {
+          value: ECallStatus.PURGATORY,
+        } as never,
+      });
+
+      expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
+    });
+
+    it('should return false when call status is IDLE or CONNECTING', () => {
       const nonInCallStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
       nonInCallStatuses.forEach((status) => {
@@ -253,7 +268,7 @@ describe('sessionSelectors', () => {
   });
 
   describe('selectSystemStatus', () => {
-    it('should return CALL_ACTIVE for IN_ROOM regardless of connection status (check is done first)', () => {
+    it('should return CALL_ACTIVE for IN_ROOM or PURGATORY regardless of connection status (check is done first)', () => {
       const allConnectionStatuses = [
         EConnectionStatus.IDLE,
         EConnectionStatus.PREPARING,
@@ -264,14 +279,17 @@ describe('sessionSelectors', () => {
         EConnectionStatus.DISCONNECTED,
         EConnectionStatus.FAILED,
       ];
+      const activeCallStatuses = [ECallStatus.IN_ROOM, ECallStatus.PURGATORY];
 
       allConnectionStatuses.forEach((connectionStatus) => {
-        const snapshot = createMockSnapshot({
-          connection: { value: connectionStatus } as never,
-          call: { value: ECallStatus.IN_ROOM } as never,
-        });
+        activeCallStatuses.forEach((callStatus) => {
+          const snapshot = createMockSnapshot({
+            connection: { value: connectionStatus } as never,
+            call: { value: callStatus } as never,
+          });
 
-        expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_ACTIVE);
+          expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_ACTIVE);
+        });
       });
     });
 

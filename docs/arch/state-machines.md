@@ -32,9 +32,13 @@ stateDiagram-v2
         }
         state call {
             idle --> connecting: call.connecting
-            connecting --> inRoom: call.enterRoom / call.tokenIssued
+            connecting --> purgatory: call.enterRoom(room=purgatory, no token)
+            connecting --> inRoom: call.enterRoom+token / call.tokenIssued
             connecting --> failed: call.failed
             connecting --> idle: call.reset
+            purgatory --> inRoom: call.enterRoom+token / call.tokenIssued
+            purgatory --> idle: call.reset
+            inRoom --> purgatory: call.enterRoom(room=purgatory, no token)
             inRoom --> idle: call.reset
             inRoom --> failed: call.failed
             failed --> idle: call.reset
@@ -84,7 +88,7 @@ stateDiagram-v2
 | Домен        | Статусы                                                                                               | Источники событий                                                                                                                                                                                     | Доменные события                                                                                                                      |
 | :----------- | :---------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
 | Connection   | `idle`, `preparing`, `connecting`, `connected`, `registered`, `established`, `disconnected`, `failed` | `ConnectionManager.events` (`connect-started`, `connecting`, `connect-parameters-resolve-success`, `connected`, `registered`, `unregistered`, `disconnected`, `registrationFailed`, `connect-failed`) | `START_CONNECT`, `START_INIT_UA`, `UA_CONNECTED`, `UA_REGISTERED`, `UA_UNREGISTERED`, `UA_DISCONNECTED`, `CONNECTION_FAILED`, `RESET` |
-| Call         | `idle`, `connecting`, `inRoom`                                                                        | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`                                                               |
+| Call         | `idle`, `connecting`, `purgatory`, `inRoom`                                                           | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`                                                               |
 | Incoming     | `idle`, `ringing`, `consumed`, `declined`, `terminated`, `failed`                                     | `IncomingCallManager.events` (`incomingCall`, `declinedIncomingCall`, `terminatedIncomingCall`, `failedIncomingCall`) + синтетика при ответе на входящий                                              | `INCOMING.RINGING`, `INCOMING.CONSUMED`, `INCOMING.DECLINED`, `INCOMING.TERMINATED`, `INCOMING.FAILED`, `INCOMING.CLEAR`              |
 | Presentation | `idle`, `starting`, `active`, `stopping`, `failed`                                                    | `CallManager.events` (`presentation:start\|started\|end\|ended\|failed`), `ConnectionManager.events` (`disconnected`, `registrationFailed`, `connect-failed`)                                         | `SCREEN.STARTING`, `SCREEN.STARTED`, `SCREEN.ENDING`, `SCREEN.ENDED`, `SCREEN.FAILED`, `PRESENTATION.RESET`                           |
 
@@ -146,15 +150,19 @@ stateDiagram-v2
 - Валидация переходов с предотвращением недопустимых операций (проверка `snapshot.can(event)` перед отправкой)
 - События: `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`. Событие `failed` от CallManager.events приводит к отправке `CALL.RESET` (переход в IDLE).
 - Публичный API:
-  - Геттеры состояний: `isIdle`, `isConnecting`, `isInRoom`
-  - Комбинированные геттеры: `isPending` (connecting), `isActive` (inRoom)
+  - Геттеры состояний: `isIdle`, `isConnecting`, `isInPurgatory`, `isInRoom`
+  - Комбинированные геттеры: `isPending` (connecting), `isActive` (inRoom или purgatory)
   - Геттер контекста: `inRoomContext`. Методы: `reset()`, `send(event)`, `subscribeToApiEvents(apiManager)` для привязки к API (enter-room, conference:participant-token-issued)
 - Корректный граф переходов:
   - IDLE → CONNECTING (CALL.CONNECTING)
+  - CONNECTING → PURGATORY (при CALL.ENTER_ROOM с room=purgatory без token)
   - CONNECTING → IN_ROOM (при получении room + participantName и token через CALL.ENTER_ROOM и CALL.TOKEN_ISSUED)
   - CONNECTING → IDLE (CALL.RESET; в т.ч. при событии `ended` или `failed`)
+  - PURGATORY → IN_ROOM (при появлении token: CALL.ENTER_ROOM с bearerToken — можно сменить комнату; или CALL.TOKEN_ISSUED — room остаётся purgatory)
+  - PURGATORY → IDLE (CALL.RESET)
+  - IN_ROOM → PURGATORY (при CALL.ENTER_ROOM с room=purgatory без token; в setRoomInfo token сбрасывается только для room=purgatory)
   - IN_ROOM → IDLE (CALL.RESET)
-- Внутреннее состояние EVALUATE: переход в IN_ROOM/CONNECTING/IDLE по контексту после действий
+- Внутреннее состояние EVALUATE: переход в IN_ROOM/PURGATORY/CONNECTING/IDLE по контексту после действий
 - Логирование недопустимых переходов через console.warn
 - **Зависимость для перевода в зрители**: запуск RecvSession (и вызов sendOffer) возможен только при наличии токена (состояние IN_ROOM). При гонке событий (`participant:move-request-to-spectators-with-audio-id` приходит до `conference:participant-token-issued`) CallManager использует DeferredCommandRunner: команда откладывается и выполняется при переходе в IN_ROOM.
 
@@ -213,7 +221,7 @@ stateDiagram-v2
 5. **Если connection ESTABLISHED**:
    - call IDLE → `READY_TO_CALL`
    - call CONNECTING → `CALL_CONNECTING`
-   - call IN_ROOM → `CALL_ACTIVE`
+   - call PURGATORY или call IN_ROOM → `CALL_ACTIVE`
    - неизвестный call status → fallback `READY_TO_CALL`
 
 ### Состояния ESystemStatus
@@ -224,7 +232,7 @@ stateDiagram-v2
 | `CONNECTING`        | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED |
 | `READY_TO_CALL`     | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                         |
 | `CALL_CONNECTING`   | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                   |
-| `CALL_ACTIVE`       | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM                      |
+| `CALL_ACTIVE`       | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM или PURGATORY        |
 | `CONNECTION_FAILED` | Ошибка соединения                        | connection: FAILED                                          |
 
 ### Использование
