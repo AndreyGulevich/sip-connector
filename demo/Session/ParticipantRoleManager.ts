@@ -1,22 +1,30 @@
 import { dom } from '../dom';
 import sipConnectorFacade from './sipConnectorFacade';
 
-/**
- * Тип роли участника
- */
-export type TParticipantRole = 'participant' | 'spectatorSynthetic' | 'spectator' | undefined;
+type TState =
+  | {
+      role: 'participant';
+    }
+  | {
+      role: 'spectatorSynthetic';
+      isAvailableSendingMedia: boolean;
+    }
+  | {
+      role: 'spectator';
+      isAvailableSendingMedia: boolean;
+    };
 
 /**
  * Тип обработчика изменений роли участника
  */
-type TParticipantRoleHandler = (role: TParticipantRole) => void;
+export type TParticipantRoleHandler = (state?: TState) => void;
 
 /**
  * Класс для управления состоянием роли участника
  * Отслеживает текущую роль участника (участник/зритель) и подписывается на события
  */
 class ParticipantRoleManager {
-  private role: TParticipantRole = undefined;
+  private state?: TState = undefined;
 
   private readonly handlers: Set<TParticipantRoleHandler> = new Set<TParticipantRoleHandler>();
 
@@ -29,8 +37,8 @@ class ParticipantRoleManager {
   /**
    * Возвращает текущую роль участника
    */
-  public getRole(): TParticipantRole {
-    return this.role;
+  public getState(): TState | undefined {
+    return this.state;
   }
 
   /**
@@ -41,23 +49,23 @@ class ParticipantRoleManager {
     this.unsubscribeMoveToParticipants = sipConnectorFacade.on(
       'api:participant:move-request-to-participants',
       () => {
-        this.setRole('participant');
+        this.setState({ role: 'participant' });
       },
     );
 
     // Подписываемся на событие перемещения в зрители для старых серверов
     this.unsubscribeMoveToSpectatorsSynthetic = sipConnectorFacade.on(
       'api:participant:move-request-to-spectators-synthetic',
-      () => {
-        this.setRole('spectatorSynthetic');
+      ({ isAvailableSendingMedia }) => {
+        this.setState({ isAvailableSendingMedia, role: 'spectatorSynthetic' });
       },
     );
 
     // Подписываемся на событие перемещения в зрители
     this.unsubscribeMoveToSpectators = sipConnectorFacade.on(
       'api:participant:move-request-to-spectators-with-audio-id',
-      () => {
-        this.setRole('spectator');
+      ({ isAvailableSendingMedia }) => {
+        this.setState({ isAvailableSendingMedia, role: 'spectator' });
       },
     );
 
@@ -100,16 +108,27 @@ class ParticipantRoleManager {
    * Сбрасывает роль участника
    */
   public reset(): void {
-    this.setRole(undefined);
+    this.setState(undefined);
   }
 
   /**
    * Устанавливает новую роль участника
    */
-  private setRole(newRole: TParticipantRole): void {
-    if (this.role !== newRole) {
-      this.role = newRole;
-      this.notifyHandlers();
+  private setState(state?: TState): void {
+    if (state === undefined) {
+      this.state = undefined;
+    } else {
+      const currentState = this.state;
+      const isRoleChanged = currentState?.role !== state.role;
+      const isAvailableSendingMediaChanged =
+        (currentState?.role === 'spectatorSynthetic' || currentState?.role === 'spectator') &&
+        (state.role === 'spectatorSynthetic' || state.role === 'spectator') &&
+        currentState.isAvailableSendingMedia !== state.isAvailableSendingMedia;
+
+      if (isRoleChanged || isAvailableSendingMediaChanged) {
+        this.state = state;
+        this.notifyHandlers();
+      }
     }
   }
 
@@ -118,7 +137,7 @@ class ParticipantRoleManager {
    */
   private notifyHandlers(): void {
     this.handlers.forEach((handler) => {
-      handler(this.role);
+      handler(this.state);
     });
   }
 
@@ -126,13 +145,14 @@ class ParticipantRoleManager {
    * Обрабатывает изменения роли участника
    */
   // eslint-disable-next-line @typescript-eslint/class-methods-use-this
-  private readonly handleParticipantRoleChange = (role: TParticipantRole): void => {
-    if (role === undefined) {
+  private readonly handleParticipantRoleChange = (state: TState | undefined): void => {
+    if (state === undefined) {
       dom.participantRoleElement.textContent = '';
 
       return;
     }
 
+    const { role } = state;
     let roleText = '';
 
     switch (role) {
@@ -143,13 +163,13 @@ class ParticipantRoleManager {
       }
 
       case 'spectatorSynthetic': {
-        roleText = 'Зритель (синтетический)';
+        roleText = `Зритель (синтетический) (isAvailableSendingMedia: ${state.isAvailableSendingMedia})`;
 
         break;
       }
 
       case 'spectator': {
-        roleText = 'Зритель';
+        roleText = `Зритель (isAvailableSendingMedia: ${state.isAvailableSendingMedia})`;
 
         break;
       }

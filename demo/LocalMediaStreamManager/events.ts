@@ -6,6 +6,8 @@ export enum EEvent {
   CAM_DISABLE = 'cam:disable',
   MIC_ENABLE = 'mic:enable',
   MIC_DISABLE = 'mic:disable',
+  ENABLE_ALL = 'enable-all',
+  DISABLE_ALL = 'disable-all',
 }
 
 export const EVENT_NAMES = [
@@ -13,6 +15,8 @@ export const EVENT_NAMES = [
   `${EEvent.CAM_DISABLE}`,
   `${EEvent.MIC_ENABLE}`,
   `${EEvent.MIC_DISABLE}`,
+  `${EEvent.ENABLE_ALL}`,
+  `${EEvent.DISABLE_ALL}`,
 ] as const;
 
 export type TState = {
@@ -25,6 +29,8 @@ export type TEventMap = {
   'cam:disable': TState;
   'mic:enable': TState;
   'mic:disable': TState;
+  'enable-all': TState;
+  'disable-all': TState;
 };
 
 export type TEvents = TypedEvents<TEventMap>;

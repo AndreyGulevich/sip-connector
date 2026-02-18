@@ -5,6 +5,7 @@ import sipConnectorFacade from './sipConnectorFacade';
 import UseLicenseManager from './UseLicenseManager';
 
 import type { TRemoteStreams } from '@/index';
+import type { TParticipantRoleHandler } from './ParticipantRoleManager';
 import type {
   IParams as IServerParametersRequesterParams,
   IServerParametersRequester,
@@ -114,6 +115,16 @@ export class Session {
     isEnabledCam: boolean;
     isEnabledMic: boolean;
   }) {
+    // eslint-disable-next-line no-console
+    console.log('Session ~ sendMediaState:', {
+      isEnabledCam,
+      isEnabledMic,
+    });
+
     return sipConnectorFacade.sendMediaState({ isEnabledCam, isEnabledMic });
+  }
+
+  public onChangeParticipantRole(callback: TParticipantRoleHandler) {
+    this.participantRoleManager.onChange(callback);
   }
 }

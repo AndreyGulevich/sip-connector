@@ -121,7 +121,17 @@ export class LocalMediaStreamManager {
   /**
    * Включает камеру
    */
-  public enableCamera(): void {
+  public enableCamera({ silent = false }: { silent?: boolean }): boolean {
+    console.log(
+      '🚀 temp  ~ LocalMediaStreamManager.ts:126 ~ LocalMediaStreamManager ~ enableCamera ~ silent:',
+      { silent },
+      this.isEnabledCam(),
+    );
+
+    if (this.isEnabledCam()) {
+      return false;
+    }
+
     if (!this.mediaStream) {
       throw new Error('MediaStream не инициализирован');
     }
@@ -136,16 +146,25 @@ export class LocalMediaStreamManager {
       }
 
       this.state.isEnabledCam = true;
-      this.events.emit('cam:enable', this.state);
+
+      if (!silent) {
+        console.log(
+          '🚀 temp  ~ LocalMediaStreamManager.ts:153 ~ LocalMediaStreamManager ~ enableCamera ~ this.state:',
+          this.state,
+        );
+        this.events.emit('cam:enable', this.state);
+      }
     }
+
+    return true;
   }
 
   /**
    * Выключает камеру
    */
-  public disableCamera(): void {
-    if (!this.mediaStream) {
-      return;
+  public disableCamera({ silent = false }: { silent?: boolean }): boolean {
+    if (!this.mediaStream || !this.isEnabledCam()) {
+      return false;
     }
 
     const { mediaStream } = { mediaStream: this.mediaStream };
@@ -156,13 +175,22 @@ export class LocalMediaStreamManager {
     }
 
     this.state.isEnabledCam = false;
-    this.events.emit('cam:disable', this.state);
+
+    if (!silent) {
+      this.events.emit('cam:disable', this.state);
+    }
+
+    return true;
   }
 
   /**
    * Включает микрофон
    */
-  public enableMic(): void {
+  public enableMic({ silent = false }: { silent?: boolean }): boolean {
+    if (this.isEnabledMic()) {
+      return false;
+    }
+
     if (!this.mediaStream) {
       throw new Error('MediaStream не инициализирован');
     }
@@ -177,16 +205,21 @@ export class LocalMediaStreamManager {
       }
 
       this.state.isEnabledMic = true;
-      this.events.emit('mic:enable', this.state);
+
+      if (!silent) {
+        this.events.emit('mic:enable', this.state);
+      }
     }
+
+    return true;
   }
 
   /**
    * Выключает микрофон
    */
-  public disableMic(): void {
-    if (!this.mediaStream) {
-      return;
+  public disableMic({ silent = false }: { silent: boolean }): boolean {
+    if (!this.mediaStream || !this.isEnabledMic()) {
+      return false;
     }
 
     const { mediaStream } = { mediaStream: this.mediaStream };
@@ -197,7 +230,12 @@ export class LocalMediaStreamManager {
     }
 
     this.state.isEnabledMic = false;
-    this.events.emit('mic:disable', this.state);
+
+    if (!silent) {
+      this.events.emit('mic:disable', this.state);
+    }
+
+    return true;
   }
 
   /**
@@ -229,9 +267,9 @@ export class LocalMediaStreamManager {
     const isEnabledCam = this.isEnabledCam();
 
     if (isEnabledCam) {
-      this.disableCamera();
+      this.disableCamera({ silent: false });
     } else {
-      this.enableCamera();
+      this.enableCamera({ silent: false });
     }
   }
 
@@ -242,16 +280,38 @@ export class LocalMediaStreamManager {
     const isEnabledMic = this.isEnabledMic();
 
     if (isEnabledMic) {
-      this.disableMic();
+      this.disableMic({ silent: false });
     } else {
-      this.enableMic();
+      this.enableMic({ silent: false });
+    }
+  }
+
+  public enableAll(): void {
+    const isEnabledCamera = this.enableCamera({ silent: true });
+    const isEnabledMic = this.enableMic({ silent: true });
+
+    if (isEnabledCamera || isEnabledMic) {
+      this.events.emit('enable-all', this.state);
+    }
+  }
+
+  public disableAll(): void {
+    const isDisabledCamera = this.disableCamera({ silent: true });
+    const isDisabledMic = this.disableMic({ silent: true });
+
+    if (isDisabledCamera || isDisabledMic) {
+      this.events.emit('disable-all', this.state);
     }
   }
 
   public onMediaStateChange(handler: (state: TState) => void): void {
-    this.events.on('mic:disable', handler);
+    this.events.on('cam:enable', handler);
     this.events.on('cam:disable', handler);
+
     this.events.on('mic:enable', handler);
-    this.events.on('mic:enable', handler);
+    this.events.on('mic:disable', handler);
+
+    this.events.on('enable-all', handler);
+    this.events.on('disable-all', handler);
   }
 }

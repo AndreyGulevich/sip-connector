@@ -178,6 +178,28 @@ class App {
         throw new Error('MediaStream не инициализирован');
       }
 
+      this.session.onChangeParticipantRole((participantRoleState) => {
+        if (
+          participantRoleState?.role === 'participant' ||
+          participantRoleState?.isAvailableSendingMedia === true
+        ) {
+          dom.toggleMicButtonElement.classList.remove('disabled');
+          dom.toggleCameraButtonElement.classList.remove('disabled');
+        } else {
+          dom.toggleMicButtonElement.classList.add('disabled');
+          dom.toggleCameraButtonElement.classList.add('disabled');
+        }
+
+        if (
+          participantRoleState?.role === 'spectatorSynthetic' ||
+          participantRoleState?.role === 'spectator'
+        ) {
+          this.localMediaStreamManager.disableAll();
+        }
+
+        this.updateMediaButtonsState();
+      });
+
       await this.session.startCall({
         mediaStream,
         serverUrl: state.serverAddress,
