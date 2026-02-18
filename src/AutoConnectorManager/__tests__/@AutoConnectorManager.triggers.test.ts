@@ -376,7 +376,6 @@ describe('AutoConnectorManager - Triggers', () => {
     });
 
     it('остановка всех триггеров успешной проверки телефонии', async () => {
-      jest.spyOn(sipConnector.connectionManager, 'isFailed', 'get').mockReturnValue(false);
       jest.spyOn(sipConnector.connectionManager, 'isDisconnected', 'get').mockReturnValue(false);
       jest.spyOn(sipConnector.connectionManager, 'isIdle', 'get').mockReturnValue(false);
 

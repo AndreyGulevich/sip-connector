@@ -543,7 +543,6 @@ describe('ConnectionManager', () => {
       expect(connectionManager.isRegistered).toBeDefined();
       expect(connectionManager.isRegisterConfig).toBeDefined();
       expect(connectionManager.isDisconnected).toBeDefined();
-      expect(connectionManager.isFailed).toBeDefined();
     });
   });
 

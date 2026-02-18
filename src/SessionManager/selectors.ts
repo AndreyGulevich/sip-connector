@@ -1,13 +1,7 @@
-import {
-  EIncomingStatus,
-  ECallStatus,
-  ESystemStatus,
-  EConnectionStatus,
-  type EPresentationStatus,
-  type TSessionSnapshot,
-} from './types';
+import { EIncomingStatus, ECallStatus, ESystemStatus, EConnectionStatus } from './types';
 
 import type { TRemoteCallerData } from '@/IncomingCallManager';
+import type { EPresentationStatus, TSessionSnapshot } from './types';
 
 const selectConnectionStatus = (snapshot: TSessionSnapshot): EConnectionStatus => {
   return snapshot.connection.value;
@@ -69,11 +63,6 @@ const selectSystemStatus = (snapshot: TSessionSnapshot): ESystemStatus => {
     connectionStatus === EConnectionStatus.DISCONNECTED
   ) {
     return ESystemStatus.DISCONNECTED;
-  }
-
-  // Ошибка соединения
-  if (connectionStatus === EConnectionStatus.FAILED) {
-    return ESystemStatus.CONNECTION_FAILED;
   }
 
   // Идет процесс подключения

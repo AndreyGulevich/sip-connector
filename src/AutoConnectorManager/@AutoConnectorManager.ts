@@ -412,9 +412,9 @@ class AutoConnectorManager {
   }
 
   private isConnectionUnavailable() {
-    const { isFailed, isDisconnected, isIdle } = this.connectionManager;
+    const { isDisconnected, isIdle } = this.connectionManager;
 
-    return isFailed || isDisconnected || isIdle;
+    return isDisconnected || isIdle;
   }
 
   private readonly emitStatusChange = ({ isInProgress }: { isInProgress: boolean }) => {

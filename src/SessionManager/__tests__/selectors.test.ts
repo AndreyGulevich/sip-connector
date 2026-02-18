@@ -56,7 +56,6 @@ describe('sessionSelectors', () => {
         EConnectionStatus.CONNECTED,
         EConnectionStatus.REGISTERED,
         EConnectionStatus.DISCONNECTED,
-        EConnectionStatus.FAILED,
       ];
 
       statuses.forEach((status) => {
@@ -299,7 +298,6 @@ describe('sessionSelectors', () => {
         EConnectionStatus.REGISTERED,
         EConnectionStatus.ESTABLISHED,
         EConnectionStatus.DISCONNECTED,
-        EConnectionStatus.FAILED,
       ];
       const activeCallStatuses = [
         ECallStatus.IN_ROOM,
@@ -335,7 +333,7 @@ describe('sessionSelectors', () => {
       incomingStatuses.forEach((incomingStatus) => {
         presentationStatuses.forEach((presentationStatus) => {
           const snapshot = createMockSnapshot({
-            connection: { value: EConnectionStatus.FAILED } as never,
+            connection: { value: EConnectionStatus.DISCONNECTED } as never,
             call: { value: ECallStatus.IN_ROOM } as never,
             incoming: { value: incomingStatus } as never,
             presentation: { value: presentationStatus } as never,
@@ -398,32 +396,6 @@ describe('sessionSelectors', () => {
         });
 
         expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_ACTIVE);
-      });
-    });
-
-    it('should return CONNECTION_FAILED when connection is FAILED', () => {
-      const snapshot = createMockSnapshot({
-        connection: {
-          value: EConnectionStatus.FAILED,
-        } as never,
-        call: {
-          value: ECallStatus.IDLE,
-        } as never,
-      });
-
-      expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CONNECTION_FAILED);
-    });
-
-    it('should return CONNECTION_FAILED for FAILED connection unless call is IN_ROOM', () => {
-      const callStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
-
-      callStatuses.forEach((callStatus) => {
-        const snapshot = createMockSnapshot({
-          connection: { value: EConnectionStatus.FAILED } as never,
-          call: { value: callStatus } as never,
-        });
-
-        expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CONNECTION_FAILED);
       });
     });
 

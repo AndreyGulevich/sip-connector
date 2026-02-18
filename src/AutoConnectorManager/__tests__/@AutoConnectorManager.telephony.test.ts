@@ -140,34 +140,6 @@ describe('AutoConnectorManager - Telephony', () => {
       expect(connectSpy).toHaveBeenCalled();
     });
 
-    it('при успешной проверке запускает start в случае, если соединение isFailed', async () => {
-      jest.spyOn(sipConnector.connectionManager, 'isFailed', 'get').mockReturnValue(true);
-
-      const connectSpy = jest.spyOn(sipConnector.connectionManager, 'connect');
-      const startSpy = jest.spyOn(CheckTelephonyRequester.prototype, 'start').mockImplementation();
-
-      // @ts-ignore приватное свойство
-      manager.attemptsState.limitInner = 0;
-
-      manager.start(baseParameters);
-
-      await flushPromises();
-
-      const { onSuccessRequest } = startSpy.mock.calls[0][0] as {
-        onSuccessRequest: () => void;
-      };
-
-      // @ts-ignore приватное свойство
-      // eslint-disable-next-line require-atomic-updates
-      manager.attemptsState.limitInner = 10;
-
-      onSuccessRequest();
-
-      await manager.wait('success');
-
-      expect(connectSpy).toHaveBeenCalled();
-    });
-
     it('при успешной проверке запускает start в случае, если соединение было отключено', async () => {
       jest
         .spyOn(PingServerIfNotActiveCallRequester.prototype, 'start')
@@ -203,7 +175,6 @@ describe('AutoConnectorManager - Telephony', () => {
       const restartConnectionAttemptsSpy = jest.spyOn(manager, 'restartConnectionAttempts');
 
       expect(disconnectSpy).toHaveBeenCalled();
-      expect(sipConnector.connectionManager.isFailed).toBe(false);
       expect(sipConnector.connectionManager.isDisconnected).toBe(false);
       expect(sipConnector.connectionManager.isIdle).toBe(true);
 

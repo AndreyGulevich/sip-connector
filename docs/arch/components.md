@@ -26,10 +26,9 @@
 
 - **ConnectionStateMachine** - управление состояниями SIP-соединения (XState)
   - Валидация переходов между состояниями
-  - Публичный API с геттерами: `isIdle`, `isConnecting`, `isInitializing`, `isConnected`, `isRegistered`, `isDisconnected`, `isFailed`, `isPending`, `isPendingConnect`, `isPendingInitUa`, `isActiveConnection`
-  - Типобезопасная обработка ошибок (error: Error | undefined)
-  - Детальная информация об ошибках регистрации с status_code и reason_phrase
+  - Публичный API с геттерами: `isIdle`, `isPreparing`, `isConnecting`, `isConnected`, `isRegistered`, `isEstablished`, `isDisconnected`, `isPending`, `isPendingConnect`, `isPendingInitUa`, `isActiveConnection`
   - Методы: `reset()`, `startConnect()`, `startInitUa()`, `onStateChange()`, `canTransition()`, `getValidEvents()`
+  - При ошибках (registrationFailed, connect-failed) переход сразу в DISCONNECTED
   - Автоматическое логирование всех переходов состояний
 
 ---

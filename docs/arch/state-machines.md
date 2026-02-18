@@ -12,11 +12,9 @@ stateDiagram-v2
             idle --> preparing: start
             preparing --> connecting: initUa
             preparing --> disconnected: disconnected
-            preparing --> failed: failed
             connecting --> connected: uaConnected
             connecting --> registered: uaRegistered
             connecting --> disconnected: disconnected
-            connecting --> failed: failed
             connected --> established: always
             connected --> registered: uaRegistered
             connected --> disconnected: disconnected
@@ -27,8 +25,6 @@ stateDiagram-v2
             established --> idle: reset
             disconnected --> idle: reset
             disconnected --> preparing: start
-            failed --> idle: reset
-            failed --> preparing: start
         }
         state call {
             idle --> connecting: call.connecting
@@ -93,12 +89,12 @@ stateDiagram-v2
 
 ## Доменные статусы и события
 
-| Домен        | Статусы                                                                                               | Источники событий                                                                                                                                                                                     | Доменные события                                                                                                                      |
-| :----------- | :---------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-| Connection   | `idle`, `preparing`, `connecting`, `connected`, `registered`, `established`, `disconnected`, `failed` | `ConnectionManager.events` (`connect-started`, `connecting`, `connect-parameters-resolve-success`, `connected`, `registered`, `unregistered`, `disconnected`, `registrationFailed`, `connect-failed`) | `START_CONNECT`, `START_INIT_UA`, `UA_CONNECTED`, `UA_REGISTERED`, `UA_UNREGISTERED`, `UA_DISCONNECTED`, `CONNECTION_FAILED`, `RESET` |
-| Call         | `idle`, `connecting`, `purgatory`, `p2pRoom`, `directP2pRoom`, `inRoom`                               | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`                                                               |
-| Incoming     | `idle`, `ringing`, `consumed`, `declined`, `terminated`, `failed`                                     | `IncomingCallManager.events` (`incomingCall`, `declinedIncomingCall`, `terminatedIncomingCall`, `failedIncomingCall`) + синтетика при ответе на входящий                                              | `INCOMING.RINGING`, `INCOMING.CONSUMED`, `INCOMING.DECLINED`, `INCOMING.TERMINATED`, `INCOMING.FAILED`, `INCOMING.CLEAR`              |
-| Presentation | `idle`, `starting`, `active`, `stopping`, `failed`                                                    | `CallManager.events` (`presentation:start\|started\|end\|ended\|failed`), `ConnectionManager.events` (`disconnected`, `registrationFailed`, `connect-failed`)                                         | `SCREEN.STARTING`, `SCREEN.STARTED`, `SCREEN.ENDING`, `SCREEN.ENDED`, `SCREEN.FAILED`, `PRESENTATION.RESET`                           |
+| Домен        | Статусы                                                                                     | Источники событий                                                                                                                                                                                     | Доменные события                                                                                                         |
+| :----------- | :------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
+| Connection   | `idle`, `preparing`, `connecting`, `connected`, `registered`, `established`, `disconnected` | `ConnectionManager.events` (`connect-started`, `connecting`, `connect-parameters-resolve-success`, `connected`, `registered`, `unregistered`, `disconnected`, `registrationFailed`, `connect-failed`) | `START_CONNECT`, `START_INIT_UA`, `UA_CONNECTED`, `UA_REGISTERED`, `UA_UNREGISTERED`, `UA_DISCONNECTED`, `RESET`         |
+| Call         | `idle`, `connecting`, `purgatory`, `p2pRoom`, `directP2pRoom`, `inRoom`                     | `CallManager.events` (`start-call`, `enter-room`, `conference:participant-token-issued`, `ended`, `failed`)                                                                                           | `CALL.CONNECTING`, `CALL.ENTER_ROOM`, `CALL.TOKEN_ISSUED`, `CALL.RESET`                                                  |
+| Incoming     | `idle`, `ringing`, `consumed`, `declined`, `terminated`, `failed`                           | `IncomingCallManager.events` (`incomingCall`, `declinedIncomingCall`, `terminatedIncomingCall`, `failedIncomingCall`) + синтетика при ответе на входящий                                              | `INCOMING.RINGING`, `INCOMING.CONSUMED`, `INCOMING.DECLINED`, `INCOMING.TERMINATED`, `INCOMING.FAILED`, `INCOMING.CLEAR` |
+| Presentation | `idle`, `starting`, `active`, `stopping`, `failed`                                          | `CallManager.events` (`presentation:start\|started\|end\|ended\|failed`), `ConnectionManager.events` (`disconnected`, `registrationFailed`, `connect-failed`)                                         | `SCREEN.STARTING`, `SCREEN.STARTED`, `SCREEN.ENDING`, `SCREEN.ENDED`, `SCREEN.FAILED`, `PRESENTATION.RESET`              |
 
 ## API для клиентов
 
@@ -112,7 +108,7 @@ stateDiagram-v2
 
 - `presentation` может быть `active` только если `call` в `inRoom`.
 - `incoming` сбрасывается в `idle` при сбросе/завершении звонка (`CALL.RESET`; событие `ended` или `failed` приводит к CALL.RESET).
-- `connection` `failed` / `disconnected` приводит к сбросу `call` и `presentation` → `idle`.
+- `connection` `disconnected` приводит к сбросу `call` и `presentation` → `idle`.
 
 ## Детальное описание машин состояний
 
@@ -121,19 +117,17 @@ stateDiagram-v2
 - Внутренний компонент ConnectionManager
 - Управление состояниями SIP соединения через XState
 - Валидация допустимых операций с предотвращением некорректных переходов
-- Типобезопасная обработка ошибок (error: Error | undefined)
-- Детальная информация об ошибках регистрации (status_code + reason_phrase)
 - **Логика состояний:**
   - `PREPARING` — подготовка к подключению (до инициализации UA, до вызова `ua.start()`)
   - `CONNECTING` — UA запущен, идет подключение (после `ua.start()`, когда приходят события `connecting`, `connected`, `registered`)
   - `CONNECTED` — UA подключен к серверу (промежуточное состояние, автоматически переходит в `ESTABLISHED`)
   - `REGISTERED` — UA зарегистрирован на сервере (промежуточное состояние, автоматически переходит в `ESTABLISHED`)
   - `ESTABLISHED` — соединение установлено и готово к работе (финальное активное состояние, автоматически достигается из `CONNECTED` или `REGISTERED`)
+  - `DISCONNECTED` — соединение отключено (в т.ч. при ошибках: registrationFailed, connect-failed)
   - Состояния переименованы для соответствия реальной последовательности операций: сначала подготовка, затем подключение UA
 - Публичный API:
-  - Геттеры состояний: `isIdle`, `isPreparing`, `isConnecting`, `isConnected`, `isRegistered`, `isEstablished`, `isDisconnected`, `isFailed`
+  - Геттеры состояний: `isIdle`, `isPreparing`, `isConnecting`, `isConnected`, `isRegistered`, `isEstablished`, `isDisconnected`
   - Комбинированные геттеры: `isPending` (preparing/connecting), `isPendingConnect`, `isPendingInitUa`, `isActiveConnection` (connected/registered/established)
-  - Геттер ошибки: `error`
   - Методы управления: `startConnect()`, `startInitUa()`, `reset()`
   - Методы валидации: `canTransition()`, `getValidEvents()`
   - Подписка на изменения: `onStateChange(listener)`
@@ -142,13 +136,11 @@ stateDiagram-v2
   - IDLE → PREPARING → CONNECTING → REGISTERED → ESTABLISHED (автоматически)
   - Прямой переход CONNECTING → REGISTERED (для быстрой регистрации без явного connected)
   - Переход REGISTERED → CONNECTED → ESTABLISHED (через `UA_UNREGISTERED`, затем автоматически)
-  - Переходы в DISCONNECTED из PREPARING/CONNECTING/CONNECTED/REGISTERED/ESTABLISHED
-  - Переходы в FAILED из PREPARING/CONNECTING
-  - Переходы RESET: ESTABLISHED→IDLE, DISCONNECTED→IDLE, FAILED→IDLE
-  - Переходы из DISCONNECTED/FAILED: → PREPARING (повторное подключение через `START_CONNECT`)
+  - Переходы в DISCONNECTED из PREPARING/CONNECTING/CONNECTED/REGISTERED/ESTABLISHED (в т.ч. при registrationFailed, connect-failed)
+  - Переходы RESET: ESTABLISHED→IDLE, DISCONNECTED→IDLE
+  - Переход из DISCONNECTED: → PREPARING (повторное подключение через `START_CONNECT`)
   - Автоматические переходы через `always`: CONNECTED → ESTABLISHED, REGISTERED → ESTABLISHED
   - В состоянии ESTABLISHED события `UA_REGISTERED` и `UA_UNREGISTERED` игнорируются (нет обработчиков)
-- Автоматическое создание Error из ошибок регистрации с форматом: "Registration failed: {status_code} {reason_phrase}"
 - Логирование всех переходов и недопустимых операций
 
 ### CallStateMachine (Состояния звонка)
@@ -236,9 +228,8 @@ stateDiagram-v2
 
 1. **Состояние соединения имеет приоритет** — если соединение не установлено, звонок невозможен
 2. **Если connection IDLE/DISCONNECTED** → `DISCONNECTED`
-3. **Если connection FAILED** → `CONNECTION_FAILED`
-4. **Если connection PREPARING/CONNECTING/CONNECTED/REGISTERED** → `CONNECTING` (независимо от состояния call)
-5. **Если connection ESTABLISHED**:
+3. **Если connection PREPARING/CONNECTING/CONNECTED/REGISTERED** → `CONNECTING` (независимо от состояния call)
+4. **Если connection ESTABLISHED**:
    - call IDLE → `READY_TO_CALL`
    - call CONNECTING → `CALL_CONNECTING`
    - call PURGATORY, call P2P_ROOM, call DIRECT_P2P_ROOM или call IN_ROOM → `CALL_ACTIVE`
@@ -246,14 +237,13 @@ stateDiagram-v2
 
 ### Состояния ESystemStatus
 
-| Состояние           | Описание                                 | Условия                                                                         |
-| :------------------ | :--------------------------------------- | :------------------------------------------------------------------------------ |
-| `DISCONNECTED`      | Система не подключена                    | connection: IDLE или DISCONNECTED                                               |
-| `CONNECTING`        | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED                     |
-| `READY_TO_CALL`     | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                                             |
-| `CALL_CONNECTING`   | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                                       |
-| `CALL_ACTIVE`       | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM, PURGATORY, P2P_ROOM или DIRECT_P2P_ROOM |
-| `CONNECTION_FAILED` | Ошибка соединения                        | connection: FAILED                                                              |
+| Состояние         | Описание                                 | Условия                                                                         |
+| :---------------- | :--------------------------------------- | :------------------------------------------------------------------------------ |
+| `DISCONNECTED`    | Система не подключена                    | connection: IDLE или DISCONNECTED                                               |
+| `CONNECTING`      | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED                     |
+| `READY_TO_CALL`   | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                                             |
+| `CALL_CONNECTING` | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                                       |
+| `CALL_ACTIVE`     | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM, PURGATORY, P2P_ROOM или DIRECT_P2P_ROOM |
 
 ### Использование
 

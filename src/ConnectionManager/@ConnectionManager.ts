@@ -106,10 +106,6 @@ export default class ConnectionManager {
     return this.stateMachine.isDisconnected;
   }
 
-  public get isFailed() {
-    return this.stateMachine.isFailed;
-  }
-
   public get connectionState() {
     return this.stateMachine.state;
   }

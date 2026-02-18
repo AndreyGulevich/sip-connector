@@ -219,7 +219,6 @@ describe('AutoConnectorManager - Basic', () => {
     it('вызывает success при запуске проверки телефонии', async () => {
       const handleSuccess = jest.fn();
 
-      jest.spyOn(sipConnector.connectionManager, 'isFailed', 'get').mockReturnValue(false);
       jest.spyOn(sipConnector.connectionManager, 'isDisconnected', 'get').mockReturnValue(false);
       jest.spyOn(sipConnector.connectionManager, 'isIdle', 'get').mockReturnValue(false);
 

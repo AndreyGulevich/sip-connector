@@ -94,12 +94,11 @@ unsubscribe(); // Когда больше не нужно слушать
 
 Селектор `selectSystemStatus` возвращает одно из следующих состояний, объединяющих состояния Connection и Call машин:
 
-- `DISCONNECTED` - система не подключена (connection: IDLE/DISCONNECTED)
+- `DISCONNECTED` - система не подключена (connection: IDLE или DISCONNECTED, в т.ч. после ошибок)
 - `CONNECTING` - идет процесс подключения (connection: PREPARING/CONNECTING/CONNECTED/REGISTERED)
 - `READY_TO_CALL` - соединение установлено, готово к звонкам (connection: ESTABLISHED, call: IDLE)
 - `CALL_CONNECTING` - идет установка звонка (connection: ESTABLISHED, call: CONNECTING)
 - `CALL_ACTIVE` - звонок активен (connection: ESTABLISHED, call: IN_ROOM)
-- `CONNECTION_FAILED` - ошибка соединения (connection: FAILED)
 
 Этот селектор позволяет клиенту однозначно определить текущее состояние системы без необходимости анализировать комбинации состояний Connection и Call вручную.
 

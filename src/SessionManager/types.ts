@@ -46,6 +46,4 @@ export enum ESystemStatus {
   CALL_CONNECTING = 'system:callConnecting',
   /** Звонок активен (connection established, call accepted/inCall) */
   CALL_ACTIVE = 'system:callActive',
-  /** Ошибка соединения (connection failed) */
-  CONNECTION_FAILED = 'system:connectionFailed',
 }
