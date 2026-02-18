@@ -391,6 +391,66 @@ describe('RecvSession', () => {
       expect(pc.signalingState).toBe('stable');
     });
 
+    it('не очищает currentRenegotiation в finally, если новый renegotiate уже перезаписал его', async () => {
+      const config = createConfig();
+      let sendOfferCallCount = 0;
+      const sendOfferMock = jest.fn(
+        async (
+          params: {
+            conferenceNumber: string;
+            token: string;
+            quality: 'low' | 'medium' | 'high';
+            audioChannel: string;
+          },
+          offer: RTCSessionDescriptionInit,
+        ) => {
+          sendOfferCallCount += 1;
+
+          if (sendOfferCallCount === 1) {
+            return new Promise<RTCSessionDescription>(() => {});
+          }
+
+          return {
+            ...offer,
+            type: 'answer',
+            params,
+            toJSON: () => {
+              return { ...offer, type: 'answer', params };
+            },
+          } as RTCSessionDescription;
+        },
+      );
+      const tools = createTools({ sendOffer: sendOfferMock });
+      const session = new RecvSession(config, tools);
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      const first = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      const second = session.renegotiate(params);
+
+      // Эмулируем ситуацию, когда currentRenegotiation уже перезаписан следующим renegotiate.
+      // В нормальном flow second не успевает установить его до first's finally, поэтому
+      // принудительно задаём иное значение для покрытия else на строке 206.
+      (session as unknown as { currentRenegotiation?: Promise<boolean> }).currentRenegotiation =
+        second;
+
+      const firstError = await first.then(
+        () => {
+          throw new Error('expected first renegotiate to reject');
+        },
+        (error: unknown) => {
+          return error;
+        },
+      );
+
+      expect(hasCanceledError(firstError)).toBe(true);
+
+      await expect(second).resolves.toBe(true);
+      expect(sendOfferCallCount).toBe(2);
+    });
+
     it('отменяет предыдущий sendOffer и откатывает signalingState при параллельном вызове', async () => {
       const config = createConfig();
       let sendOfferCallCount = 0;
@@ -545,6 +605,75 @@ describe('RecvSession', () => {
       expect(pc.signalingState).toBe('stable');
     });
 
+    it('waitForStableSignalingState: handler резолвит при переходе в stable по signalingstatechange', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      const removeEventListenerSpy = jest.spyOn(pc, 'removeEventListener');
+
+      let resolveSetRemote!: () => void;
+
+      pc.setRemoteDescription.mockImplementationOnce(async () => {
+        await new Promise<void>((r) => {
+          resolveSetRemote = r;
+        });
+        // Не меняем state — оставляем have-local-offer. setTimeout(0) откладывает dispatch
+        // после выполнения performRenegotiate -> waitForStableSignalingState (подписка handler)
+        setTimeout(() => {
+          pc.signalingState = 'stable';
+          pc.dispatchEvent(new Event('signalingstatechange'));
+        }, 0);
+      });
+
+      const renegotiatePromise = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      resolveSetRemote();
+
+      await expect(renegotiatePromise).resolves.toBe(true);
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith(
+        'signalingstatechange',
+        expect.any(Function),
+      );
+    });
+
+    it('waitForStableSignalingState: handler продолжает ждать при signalingstatechange без stable', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      let resolveSetRemote!: () => void;
+
+      pc.setRemoteDescription.mockImplementationOnce(async () => {
+        await new Promise<void>((r) => {
+          resolveSetRemote = r;
+        });
+        setTimeout(() => {
+          pc.signalingState = 'have-remote-offer';
+          pc.dispatchEvent(new Event('signalingstatechange'));
+        }, 0);
+        setTimeout(() => {
+          pc.signalingState = 'stable';
+          pc.dispatchEvent(new Event('signalingstatechange'));
+        }, 20);
+      });
+
+      const renegotiatePromise = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      resolveSetRemote();
+
+      await expect(renegotiatePromise).resolves.toBe(true);
+    });
+
     it('выбрасывает ошибку по таймауту waitForStableSignalingState', async () => {
       jest.useFakeTimers();
 
@@ -564,28 +693,25 @@ describe('RecvSession', () => {
         const renegotiatePromise = session.renegotiate(params);
 
         // Даём промису время дойти до waitForStableSignalingState
-        // Это позволяет всем синхронным операциям завершиться
-        await jest.advanceTimersByTimeAsync(0);
+        await Promise.resolve();
 
-        // Создаём expectation после того, как промис начал выполняться
-        // но до того, как сработает таймаут
-        // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-        const expectation = await expect(renegotiatePromise).rejects.toThrow(
+        // Присоединяем expect ДО advance timers — при срабатывании таймаута rejection
+        // уже будет обработан, иначе возможен unhandled rejection.
+        // Без await: иначе deadlock — ждали бы rejection до advance, но rejection — после advance
+        // eslint-disable-next-line jest/valid-expect
+        const expectPromise = expect(renegotiatePromise).rejects.toThrow(
           'Timed out waiting for stable signaling state',
         );
 
-        // Теперь advance timers на 5000ms, чтобы сработал таймаут
+        // Advance timers на 5000ms — сработает таймаут waitForStableSignalingState
         await jest.advanceTimersByTimeAsync(5000);
 
-        // Ждём выполнения expectation
-
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        await expectation;
+        await expectPromise;
       } finally {
         // Всегда очищаем fake timers, даже если тест упал
         jest.useRealTimers();
       }
-    }, 10_000);
+    });
   });
 
   describe('applyQuality', () => {
