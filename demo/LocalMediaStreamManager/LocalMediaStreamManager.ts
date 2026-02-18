@@ -1,15 +1,26 @@
-import getMediaStream from './utils/getMediaStream';
+import getMediaStream from '../utils/getMediaStream';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import VideoPlayer from './VideoPlayer';
+import VideoPlayer from '../VideoPlayer';
+import { createEvents } from './events';
+
+import type { TEvents, TState } from './events';
 
 /**
  * Класс для управления MediaStream
  * Инициализирует и управляет медиа-потоком с помощью getUserMedia
  */
-class LocalMediaStreamManager {
+export class LocalMediaStreamManager {
+  private readonly state: TState = { isEnabledCam: false, isEnabledMic: false };
+
   private mediaStream: MediaStream | undefined = undefined;
 
   private videoPlayer: VideoPlayer | undefined = undefined;
+
+  private readonly events: TEvents;
+
+  public constructor() {
+    this.events = createEvents();
+  }
 
   /**
    * Инициализирует MediaStream
@@ -25,6 +36,9 @@ class LocalMediaStreamManager {
     if (this.videoPlayer) {
       this.videoPlayer.setStream(this.mediaStream);
     }
+
+    this.state.isEnabledCam = true;
+    this.state.isEnabledMic = true;
 
     return this.mediaStream;
   }
@@ -120,6 +134,9 @@ class LocalMediaStreamManager {
       for (const track of videoTracks) {
         track.enabled = true;
       }
+
+      this.state.isEnabledCam = true;
+      this.events.emit('cam:enable', this.state);
     }
   }
 
@@ -137,6 +154,9 @@ class LocalMediaStreamManager {
     for (const track of videoTracks) {
       track.enabled = false;
     }
+
+    this.state.isEnabledCam = false;
+    this.events.emit('cam:disable', this.state);
   }
 
   /**
@@ -155,6 +175,9 @@ class LocalMediaStreamManager {
       for (const track of audioTracks) {
         track.enabled = true;
       }
+
+      this.state.isEnabledMic = true;
+      this.events.emit('mic:enable', this.state);
     }
   }
 
@@ -172,41 +195,40 @@ class LocalMediaStreamManager {
     for (const track of audioTracks) {
       track.enabled = false;
     }
+
+    this.state.isEnabledMic = false;
+    this.events.emit('mic:disable', this.state);
   }
 
   /**
    * Проверяет, включена ли камера
    */
-  public isCameraEnabled(): boolean {
+  public isEnabledCam(): boolean {
     if (!this.mediaStream) {
       return false;
     }
 
-    const videoTracks = this.mediaStream.getVideoTracks();
-
-    return videoTracks.length > 0 && videoTracks[0].readyState === 'live' && videoTracks[0].enabled;
+    return this.state.isEnabledCam;
   }
 
   /**
    * Проверяет, включен ли микрофон
    */
-  public isMicEnabled(): boolean {
+  public isEnabledMic(): boolean {
     if (!this.mediaStream) {
       return false;
     }
 
-    const audioTracks = this.mediaStream.getAudioTracks();
-
-    return audioTracks.length > 0 && audioTracks[0].readyState === 'live' && audioTracks[0].enabled;
+    return this.state.isEnabledMic;
   }
 
   /**
    * Обрабатывает переключение камеры
    */
   public toggleCamera(): void {
-    const isCameraEnabled = this.isCameraEnabled();
+    const isEnabledCam = this.isEnabledCam();
 
-    if (isCameraEnabled) {
+    if (isEnabledCam) {
       this.disableCamera();
     } else {
       this.enableCamera();
@@ -217,14 +239,19 @@ class LocalMediaStreamManager {
    * Обрабатывает переключение микрофона
    */
   public toggleMic(): void {
-    const isMicEnabled = this.isMicEnabled();
+    const isEnabledMic = this.isEnabledMic();
 
-    if (isMicEnabled) {
+    if (isEnabledMic) {
       this.disableMic();
     } else {
       this.enableMic();
     }
   }
-}
 
-export default LocalMediaStreamManager;
+  public onMediaStateChange(handler: (state: TState) => void): void {
+    this.events.on('mic:disable', handler);
+    this.events.on('cam:disable', handler);
+    this.events.on('mic:enable', handler);
+    this.events.on('mic:enable', handler);
+  }
+}

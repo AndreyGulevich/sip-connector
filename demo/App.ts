@@ -4,11 +4,11 @@ import CallStatsManager from './CallStatsManager';
 import ConferenceStateDisplay from './ConferenceStateDisplay';
 import { dom } from './dom';
 import LoaderManager from './LoaderManager';
-import LocalMediaStreamManager from './LocalMediaStreamManager';
+import { LocalMediaStreamManager } from './LocalMediaStreamManager';
 import LogsManager from './LogsManager';
 import PresentationManager from './PresentationManager';
 import RemoteMediaStreamManager from './RemoteMediaStreamManager';
-import Session from './Session/Session';
+import { Session } from './Session';
 import FormStateManager from './state/FormStateManager';
 import Statuses from './Statuses';
 import getAppInfo from './utils/getAppInfo';
@@ -113,6 +113,12 @@ class App {
     // Подписываемся на кнопку переключения микрофона
     dom.toggleMicButtonElement.addEventListener('click', () => {
       this.handleToggleMic();
+    });
+
+    this.localMediaStreamManager.onMediaStateChange((state) => {
+      this.session?.sendMediaState(state).catch((error: unknown) => {
+        this.handleError(error);
+      });
     });
   }
 
@@ -325,31 +331,27 @@ class App {
    * Обновляет состояние кнопок камеры и микрофона
    */
   private updateMediaButtonsState(): void {
-    const isCameraEnabled = this.localMediaStreamManager.isCameraEnabled();
-    const isMicEnabled = this.localMediaStreamManager.isMicEnabled();
+    const isEnabledCam = this.localMediaStreamManager.isEnabledCam();
+    const isEnabledMic = this.localMediaStreamManager.isEnabledMic();
 
-    dom.toggleCameraButtonTextElement.textContent = isCameraEnabled
+    dom.toggleCameraButtonTextElement.textContent = isEnabledCam
       ? 'Выключить камеру'
       : 'Включить камеру';
 
-    dom.toggleMicButtonTextElement.textContent = isMicEnabled
+    dom.toggleMicButtonTextElement.textContent = isEnabledMic
       ? 'Выключить микрофон'
       : 'Включить микрофон';
 
     // Обновляем классы для стилизации
-    if (isCameraEnabled) {
+    if (isEnabledCam) {
       dom.toggleCameraButtonElement.classList.add('enabled');
-      dom.toggleCameraButtonElement.classList.remove('disabled');
     } else {
-      dom.toggleCameraButtonElement.classList.add('disabled');
       dom.toggleCameraButtonElement.classList.remove('enabled');
     }
 
-    if (isMicEnabled) {
+    if (isEnabledMic) {
       dom.toggleMicButtonElement.classList.add('enabled');
-      dom.toggleMicButtonElement.classList.remove('disabled');
     } else {
-      dom.toggleMicButtonElement.classList.add('disabled');
       dom.toggleMicButtonElement.classList.remove('enabled');
     }
   }

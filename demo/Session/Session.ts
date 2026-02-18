@@ -10,7 +10,7 @@ import type {
   IServerParametersRequester,
 } from './resolveServerParametersRequester';
 
-class Session {
+export class Session {
   private readonly serverParametersRequester: IServerParametersRequester;
 
   private readonly participantRoleManager: ParticipantRoleManager;
@@ -105,6 +105,15 @@ class Session {
     this.recvQualityManager.reset();
     await sipConnectorFacade.disconnectFromServer();
   }
-}
 
-export default Session;
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this
+  public async sendMediaState({
+    isEnabledCam,
+    isEnabledMic,
+  }: {
+    isEnabledCam: boolean;
+    isEnabledMic: boolean;
+  }) {
+    return sipConnectorFacade.sendMediaState({ isEnabledCam, isEnabledMic });
+  }
+}
