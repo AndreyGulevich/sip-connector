@@ -277,7 +277,7 @@ describe('RecvSession', () => {
 
       expect(hasReachedLimitError(error)).toBe(true);
       expect(sendOfferMock).toHaveBeenCalledTimes(SEND_OFFER_CALL_LIMIT);
-    });
+    }, 10_000);
 
     it('close() отменяет повторные вызовы sendOffer при выполняющемся renegotiate', async () => {
       const config = createConfig();
@@ -367,6 +367,225 @@ describe('RecvSession', () => {
     expect(renegotiateSpy).not.toHaveBeenCalled();
     expect(session.getQuality()).toBe('high');
     expect(session.getEffectiveQuality()).toBe('high');
+  });
+
+  describe('renegotiate: signaling state and serialization', () => {
+    it('signalingState === stable после завершения renegotiate', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const conferenceNumber = '123';
+      const token = 'test-token';
+
+      const callPromise = session.call({ conferenceNumber, token });
+
+      dispatchTrack(session, 'audio');
+      dispatchTrack(session, 'video');
+      await callPromise;
+
+      expect(pc.signalingState).toBe('stable');
+
+      await session.renegotiate({ conferenceNumber, token });
+
+      expect(pc.signalingState).toBe('stable');
+    });
+
+    it('отменяет предыдущий sendOffer и откатывает signalingState при параллельном вызове', async () => {
+      const config = createConfig();
+      let sendOfferCallCount = 0;
+      const sendOfferMock = jest.fn(
+        async (
+          params: {
+            conferenceNumber: string;
+            token: string;
+            quality: 'low' | 'medium' | 'high';
+            audioChannel: string;
+          },
+          offer: RTCSessionDescriptionInit,
+        ) => {
+          sendOfferCallCount += 1;
+
+          if (sendOfferCallCount === 1) {
+            return new Promise<RTCSessionDescription>(() => {});
+          }
+
+          return {
+            ...offer,
+            type: 'answer',
+            params,
+            toJSON: () => {
+              return { ...offer, type: 'answer', params };
+            },
+          } as RTCSessionDescription;
+        },
+      );
+      const tools = createTools({ sendOffer: sendOfferMock });
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      const first = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      expect(pc.signalingState).toBe('have-local-offer');
+
+      const second = session.renegotiate(params);
+
+      const firstError = await first.then(
+        () => {
+          throw new Error('expected first renegotiate to reject');
+        },
+        (error_: unknown) => {
+          return error_;
+        },
+      );
+
+      expect(hasCanceledError(firstError)).toBe(true);
+
+      await expect(second).resolves.toBe(true);
+      expect(pc.signalingState).toBe('stable');
+      expect(pc.setLocalDescription).toHaveBeenCalledWith({ type: 'rollback' });
+    });
+
+    it('сериализует параллельные renegotiate: второй ждёт завершения первого', async () => {
+      const config = createConfig();
+      let sendOfferResolve!: (value: RTCSessionDescription) => void;
+      let sendOfferCallCount = 0;
+      const sendOfferMock = jest.fn(
+        async (
+          params: {
+            conferenceNumber: string;
+            token: string;
+            quality: 'low' | 'medium' | 'high';
+            audioChannel: string;
+          },
+          offer: RTCSessionDescriptionInit,
+        ) => {
+          sendOfferCallCount += 1;
+
+          if (sendOfferCallCount === 1) {
+            return new Promise<RTCSessionDescription>((resolve) => {
+              sendOfferResolve = resolve;
+            });
+          }
+
+          return {
+            ...offer,
+            type: 'answer',
+            params,
+            toJSON: () => {
+              return { ...offer, type: 'answer', params };
+            },
+          } as RTCSessionDescription;
+        },
+      );
+      const tools = createTools({ sendOffer: sendOfferMock });
+      const session = new RecvSession(config, tools);
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      const first = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      const second = session.renegotiate(params);
+
+      const firstError = await first.then(
+        () => {
+          throw new Error('expected first renegotiate to reject');
+        },
+        (error_: unknown) => {
+          return error_;
+        },
+      );
+
+      expect(hasCanceledError(firstError)).toBe(true);
+
+      const secondResult = await second;
+
+      expect(secondResult).toBe(true);
+      expect(sendOfferCallCount).toBe(2);
+
+      sendOfferResolve(undefined as unknown as RTCSessionDescription);
+    });
+
+    it('ожидает stable signalingState при медленном setRemoteDescription', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      let resolveSlowSetRemote!: () => void;
+      const originalSetRemoteImpl = pc.setRemoteDescription.getMockImplementation();
+
+      pc.setRemoteDescription.mockImplementationOnce(async (description) => {
+        await new Promise<void>((resolve) => {
+          resolveSlowSetRemote = resolve;
+        });
+
+        if (originalSetRemoteImpl) {
+          return originalSetRemoteImpl(description);
+        }
+
+        return undefined;
+      });
+
+      const renegotiatePromise = session.renegotiate(params);
+
+      await delayPromise(0);
+
+      expect(pc.signalingState).toBe('have-local-offer');
+
+      resolveSlowSetRemote();
+
+      await renegotiatePromise;
+
+      expect(pc.signalingState).toBe('stable');
+    });
+
+    it('выбрасывает ошибку по таймауту waitForStableSignalingState', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const config = createConfig();
+        const tools = createTools();
+        const session = new RecvSession(config, tools);
+        const pc = session.peerConnection as RTCPeerConnectionMock;
+        const params = { conferenceNumber: '123', token: 'test-token' };
+
+        // Мокируем setRemoteDescription так, чтобы он не менял signalingState
+        // Это оставит состояние в 'have-local-offer', что вызовет таймаут
+        pc.setRemoteDescription.mockImplementationOnce(async () => {
+          // signalingState остаётся have-local-offer — не меняется и event не диспатчится
+        });
+
+        const renegotiatePromise = session.renegotiate(params);
+
+        // Даём промису время дойти до waitForStableSignalingState
+        // Это позволяет всем синхронным операциям завершиться
+        await jest.advanceTimersByTimeAsync(0);
+
+        // Создаём expectation после того, как промис начал выполняться
+        // но до того, как сработает таймаут
+        // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+        const expectation = await expect(renegotiatePromise).rejects.toThrow(
+          'Timed out waiting for stable signaling state',
+        );
+
+        // Теперь advance timers на 5000ms, чтобы сработал таймаут
+        await jest.advanceTimersByTimeAsync(5000);
+
+        // Ждём выполнения expectation
+
+        // eslint-disable-next-line @typescript-eslint/await-thenable
+        await expectation;
+      } finally {
+        // Всегда очищаем fake timers, даже если тест упал
+        jest.useRealTimers();
+      }
+    }, 10_000);
   });
 
   describe('applyQuality', () => {

@@ -66,16 +66,22 @@ class RTCPeerConnectionMock extends EventTarget implements RTCPeerConnectionDepr
   // eslint-disable-next-line unicorn/no-null
   public sctp = null;
 
-  public signalingState!: RTCSignalingState;
+  public signalingState: RTCSignalingState = 'stable';
 
   public close = jest.fn();
 
   public setLocalDescription = jest.fn(
-    async (_description: RTCSessionDescriptionInit): Promise<void> => {},
+    async (description: RTCSessionDescriptionInit): Promise<void> => {
+      this.signalingState = description.type === 'rollback' ? 'stable' : 'have-local-offer';
+      this.dispatchEvent(new Event('signalingstatechange'));
+    },
   );
 
   public setRemoteDescription = jest.fn(
-    async (_description: RTCSessionDescriptionInit): Promise<void> => {},
+    async (_description: RTCSessionDescriptionInit): Promise<void> => {
+      this.signalingState = 'stable';
+      this.dispatchEvent(new Event('signalingstatechange'));
+    },
   );
 
   public addTransceiver = jest.fn(
