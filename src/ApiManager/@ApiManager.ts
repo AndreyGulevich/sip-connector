@@ -118,6 +118,12 @@ class ApiManager {
     return rtcSession.sendInfo(EContentTypeSent.CHANNELS, undefined, { extraHeaders });
   }
 
+  public sendEnterRoom(extraHeaders: string[]): void {
+    this.sendEnterRoomProtected(extraHeaders).catch((error: unknown) => {
+      this.events.trigger(EEvent.FAILED_SEND_ROOM_DIRECT_P2P, { error });
+    });
+  }
+
   public async sendMediaState(
     { cam, mic }: TMediaState,
     options: TOptionsInfoMediaState = {},
@@ -544,9 +550,15 @@ class ApiManager {
     const room = getHeader(request, EKeyHeader.CONTENT_ENTER_ROOM);
     const participantName = getHeader(request, EKeyHeader.PARTICIPANT_NAME);
     const bearerToken = getHeader(request, EKeyHeader.BEARER_TOKEN);
+    const isDirectPeerToPeer = getHeader(request, EKeyHeader.IS_DIRECT_PEER_TO_PEER);
 
     if (room !== undefined && participantName !== undefined) {
-      this.events.trigger(EEvent.ENTER_ROOM, { room, participantName, bearerToken });
+      this.events.trigger(EEvent.ENTER_ROOM, {
+        room,
+        participantName,
+        bearerToken,
+        isDirectPeerToPeer,
+      });
     }
   };
 
@@ -650,6 +662,12 @@ class ApiManager {
       this.events.trigger(EEvent.USE_LICENSE, license);
     }
   };
+
+  private async sendEnterRoomProtected(extraHeaders: string[]): Promise<void> {
+    const rtcSession = this.getEstablishedRTCSessionProtected();
+
+    return rtcSession.sendInfo(EContentTypeReceived.ENTER_ROOM, undefined, { extraHeaders });
+  }
 }
 
 export default ApiManager;

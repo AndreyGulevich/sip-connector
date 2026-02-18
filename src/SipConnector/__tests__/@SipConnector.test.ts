@@ -1,13 +1,14 @@
+import { C, IncomingResponse } from '@krivega/jssip';
 import { createMediaStreamMock } from 'webrtc-mock';
 
 import flushPromises from '@/__fixtures__/flushPromises';
 import JsSIP from '@/__fixtures__/jssip.mock';
+import logger from '@/logger';
 import * as tools from '@/tools';
 import SipConnector from '../@SipConnector';
 
 import type {
   ConnectedEvent,
-  IncomingResponse,
   RegisteredEvent,
   Socket,
   UA,
@@ -16,6 +17,10 @@ import type {
 import type { TConnectionConfiguration } from '@/ConnectionManager';
 import type { TInboundStats, TOutboundStats } from '@/StatsPeerConnection';
 import type { TJsSIP } from '@/types';
+
+jest.mock('@/logger', () => {
+  return jest.fn();
+});
 
 describe('SipConnector', () => {
   let sipConnector: SipConnector;
@@ -65,6 +70,52 @@ describe('SipConnector', () => {
     await flushPromises();
 
     expect(spyRecover).toHaveBeenCalledTimes(1);
+  });
+
+  it('при событии failed-send-room-direct-p2p вызывает callManager.failed с message и cause', async () => {
+    const failedSpy = jest.spyOn(sipConnector.callManager, 'failed').mockResolvedValue();
+
+    sipConnector.apiManager.events.trigger('failed-send-room-direct-p2p', {
+      error: new Error('send room failed'),
+    });
+
+    await flushPromises();
+
+    expect(failedSpy).toHaveBeenCalledTimes(1);
+
+    const [message, cause] = failedSpy.mock.calls[0];
+
+    expect(message).toBeInstanceOf(IncomingResponse);
+    expect(message.body).toBe('send room failed');
+    expect(cause).toBe(C.causes.INTERNAL_ERROR);
+  });
+
+  it('при событии failed-send-room-direct-p2p передаёт в message.body String(error) для не-Error', async () => {
+    const failedSpy = jest.spyOn(sipConnector.callManager, 'failed').mockResolvedValue();
+
+    sipConnector.apiManager.events.trigger('failed-send-room-direct-p2p', {
+      error: 'network error',
+    });
+
+    await flushPromises();
+
+    const [message] = failedSpy.mock.calls[0];
+
+    expect(message.body).toBe('network error');
+  });
+
+  it('при событии failed-send-room-direct-p2p логирует предупреждение если failed отклоняется', async () => {
+    const endCallError = new Error('end call failed');
+
+    jest.spyOn(sipConnector.callManager, 'failed').mockRejectedValue(endCallError);
+
+    sipConnector.apiManager.events.trigger('failed-send-room-direct-p2p', {
+      error: new Error('send room failed'),
+    });
+
+    await flushPromises();
+
+    expect(logger).toHaveBeenCalledWith('Failed to end call after failed:', endCallError);
   });
 
   it('не должен проксировать событие connection:disconnected как disconnected-from-out-of-call если активен звонок', async () => {
@@ -412,10 +463,17 @@ describe('SipConnector', () => {
     expect(askPermissionToEnableCam).toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать startPresentation isP2P=false', async () => {
+  it('должен корректно обрабатывать startPresentation когда не в DIRECT_P2P_ROOM', async () => {
     const stream = createMediaStreamMock({
       audio: { deviceId: { exact: 'audioDeviceId' } },
       video: { deviceId: { exact: 'videoDeviceId' } },
+    });
+
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'room-1',
+      participantName: 'User',
+      bearerToken: 'token',
     });
 
     const askPermissionToStartPresentation = jest
@@ -440,7 +498,7 @@ describe('SipConnector', () => {
         return s;
       });
 
-    await sipConnector.startPresentation(stream, { isP2P: false });
+    await sipConnector.startPresentation(stream);
 
     expect(askPermissionToStartPresentation).toHaveBeenCalled();
     expect(sendAvailableContentedStream).not.toHaveBeenCalled();
@@ -448,10 +506,17 @@ describe('SipConnector', () => {
     expect(sendStoppedPresentation).not.toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать startPresentation isP2P=true', async () => {
+  it('должен корректно обрабатывать startPresentation когда в DIRECT_P2P_ROOM', async () => {
     const stream = createMediaStreamMock({
       audio: { deviceId: { exact: 'audioDeviceId' } },
       video: { deviceId: { exact: 'videoDeviceId' } },
+    });
+
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'directP2P100to200',
+      participantName: 'User',
+      isDirectPeerToPeer: true,
     });
 
     const askPermissionToStartPresentation = jest
@@ -476,7 +541,7 @@ describe('SipConnector', () => {
         return s;
       });
 
-    await sipConnector.startPresentation(stream, { isP2P: true });
+    await sipConnector.startPresentation(stream);
 
     expect(askPermissionToStartPresentation).not.toHaveBeenCalled();
     expect(sendAvailableContentedStream).toHaveBeenCalled();
@@ -484,7 +549,14 @@ describe('SipConnector', () => {
     expect(sendStoppedPresentation).not.toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать stopPresentation isP2P=false', async () => {
+  it('должен корректно обрабатывать stopPresentation когда не в DIRECT_P2P_ROOM', async () => {
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'room-1',
+      participantName: 'User',
+      bearerToken: 'token',
+    });
+
     const askPermissionToStartPresentation = jest
       .spyOn(sipConnector.apiManager, 'askPermissionToStartPresentation')
       .mockResolvedValue(undefined);
@@ -506,7 +578,7 @@ describe('SipConnector', () => {
         return undefined;
       });
 
-    await sipConnector.stopPresentation({ isP2P: false });
+    await sipConnector.stopPresentation();
 
     expect(askPermissionToStartPresentation).not.toHaveBeenCalled();
     expect(sendAvailableContentedStream).not.toHaveBeenCalled();
@@ -514,7 +586,14 @@ describe('SipConnector', () => {
     expect(sendStoppedPresentation).toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать stopPresentation isP2P=true', async () => {
+  it('должен корректно обрабатывать stopPresentation когда в DIRECT_P2P_ROOM', async () => {
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'directP2P100to200',
+      participantName: 'User',
+      isDirectPeerToPeer: true,
+    });
+
     const askPermissionToStartPresentation = jest
       .spyOn(sipConnector.apiManager, 'askPermissionToStartPresentation')
       .mockResolvedValue(undefined);
@@ -536,7 +615,7 @@ describe('SipConnector', () => {
         return undefined;
       });
 
-    await sipConnector.stopPresentation({ isP2P: true });
+    await sipConnector.stopPresentation();
 
     expect(askPermissionToStartPresentation).not.toHaveBeenCalled();
     expect(sendAvailableContentedStream).not.toHaveBeenCalled();
@@ -544,11 +623,25 @@ describe('SipConnector', () => {
     expect(sendStoppedPresentation).not.toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать updatePresentation isP2P=false', async () => {
+  it('должен корректно обрабатывать updatePresentation когда не в DIRECT_P2P_ROOM', async () => {
     const stream = createMediaStreamMock({
       audio: { deviceId: { exact: 'audioDeviceId' } },
       video: { deviceId: { exact: 'videoDeviceId' } },
     });
+
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'room-1',
+      participantName: 'User',
+      bearerToken: 'token',
+    });
+
+    jest
+      .spyOn(sipConnector.presentationManager, 'startPresentation')
+      .mockImplementation(async (_callback, s) => {
+        return s;
+      });
+    await sipConnector.startPresentation(stream);
 
     const askPermissionToStartPresentation = jest
       .spyOn(sipConnector.apiManager, 'askPermissionToStartPresentation')
@@ -571,7 +664,7 @@ describe('SipConnector', () => {
         return undefined;
       });
 
-    await sipConnector.updatePresentation(stream, { isP2P: false });
+    await sipConnector.updatePresentation(stream);
 
     expect(askPermissionToStartPresentation).toHaveBeenCalled();
     expect(sendAvailableContentedStream).not.toHaveBeenCalled();
@@ -579,11 +672,25 @@ describe('SipConnector', () => {
     expect(sendStoppedPresentation).not.toHaveBeenCalled();
   });
 
-  it('должен корректно обрабатывать updatePresentation isP2P=true', async () => {
+  it('должен корректно обрабатывать updatePresentation когда в DIRECT_P2P_ROOM', async () => {
     const stream = createMediaStreamMock({
       audio: { deviceId: { exact: 'audioDeviceId' } },
       video: { deviceId: { exact: 'videoDeviceId' } },
     });
+
+    sipConnector.callManager.events.trigger('start-call', { number: '100', answer: false });
+    sipConnector.apiManager.events.trigger('enter-room', {
+      room: 'directP2P100to200',
+      participantName: 'User',
+      isDirectPeerToPeer: true,
+    });
+
+    jest
+      .spyOn(sipConnector.presentationManager, 'startPresentation')
+      .mockImplementation(async (_callback, s) => {
+        return s;
+      });
+    await sipConnector.startPresentation(stream);
 
     const askPermissionToStartPresentation = jest
       .spyOn(sipConnector.apiManager, 'askPermissionToStartPresentation')
@@ -606,7 +713,7 @@ describe('SipConnector', () => {
         return undefined;
       });
 
-    await sipConnector.updatePresentation(stream, { isP2P: true });
+    await sipConnector.updatePresentation(stream);
 
     expect(askPermissionToStartPresentation).not.toHaveBeenCalled();
     expect(sendAvailableContentedStream).toHaveBeenCalled();

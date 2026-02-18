@@ -1,4 +1,5 @@
 import delayPromise from '@/__fixtures__/delayPromise';
+import flushPromises from '@/__fixtures__/flushPromises';
 import jssip from '@/__fixtures__/jssip.mock';
 import RTCSessionMock from '@/__fixtures__/RTCSessionMock';
 import { CallManager } from '@/CallManager';
@@ -190,6 +191,19 @@ describe('ApiManager (core)', () => {
           `${EKeyHeader.INPUT_CHANNELS}: input1,input2`,
           `${EKeyHeader.OUTPUT_CHANNELS}: output1,output2`,
         ],
+      });
+    });
+
+    it('должен отправлять enter room с переданными extraHeaders', async () => {
+      const sendInfoSpy = jest.spyOn(rtcSession, 'sendInfo').mockResolvedValue(undefined);
+      const extraHeaders = ['X-Room: room1', 'X-Participant: user'];
+
+      apiManager.sendEnterRoom(extraHeaders);
+
+      await flushPromises();
+
+      expect(sendInfoSpy).toHaveBeenCalledWith(EContentTypeReceived.ENTER_ROOM, undefined, {
+        extraHeaders,
       });
     });
 
@@ -413,6 +427,23 @@ describe('ApiManager (core)', () => {
       await expect(apiManager.sendStats({ availableIncomingBitrate: 1 })).rejects.toThrow(
         'No rtcSession established',
       );
+    });
+
+    it('не должен эмитить failed-send-room-direct-p2p когда отсутствует rtcSession в sendEnterRoom', () => {
+      callManager.getEstablishedRTCSession.mockReturnValue(undefined);
+      apiManager = new ApiManager();
+      apiManager.subscribe({
+        connectionManager,
+        callManager,
+      });
+
+      const failedSpy = jest.fn();
+
+      apiManager.on('failed-send-room-direct-p2p', failedSpy);
+
+      apiManager.sendEnterRoom(['X-Room: room1']);
+
+      expect(failedSpy).not.toHaveBeenCalled();
     });
 
     it('должен выбрасывать ошибку при отсутствии rtcSession в sendRefusalToTurnOn', async () => {

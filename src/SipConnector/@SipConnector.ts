@@ -1,3 +1,5 @@
+import { C as JsSIP_C, IncomingResponse } from '@krivega/jssip';
+
 import { ApiManager } from '@/ApiManager';
 import { AutoConnectorManager } from '@/AutoConnectorManager';
 import { CallManager } from '@/CallManager';
@@ -5,6 +7,8 @@ import { ConnectionManager } from '@/ConnectionManager';
 import { ConnectionQueueManager } from '@/ConnectionQueueManager';
 import { ContentedStreamManager } from '@/ContentedStreamManager';
 import { IncomingCallManager } from '@/IncomingCallManager';
+import logger from '@/logger';
+import { PeerToPeerManager } from '@/PeerToPeerManager';
 import { PresentationManager } from '@/PresentationManager';
 import { SessionManager } from '@/SessionManager';
 import { StatsManager } from '@/StatsManager';
@@ -49,6 +53,8 @@ class SipConnector {
   public readonly sessionManager: SessionManager;
 
   public readonly mainStreamHealthMonitor: MainStreamHealthMonitor;
+
+  private readonly peerToPeerManager: PeerToPeerManager;
 
   private readonly mainStreamRecovery: MainStreamRecovery;
 
@@ -118,6 +124,12 @@ class SipConnector {
       connectionManager: this.connectionManager,
       callManager: this.callManager,
     });
+    this.peerToPeerManager = new PeerToPeerManager();
+    this.peerToPeerManager.subscribe({
+      connectionManager: this.connectionManager,
+      callManager: this.callManager,
+      apiManager: this.apiManager,
+    });
     this.subscribe();
   }
 
@@ -167,6 +179,10 @@ class SipConnector {
 
   public get isAvailableIncomingCall(): IncomingCallManager['isAvailableIncomingCall'] {
     return this.incomingCallManager.isAvailableIncomingCall;
+  }
+
+  private get isDirectP2PRoom(): boolean {
+    return this.callManager.isDirectP2PRoom;
   }
 
   public on<T extends keyof TEventMap>(eventName: T, handler: (data: TEventMap[T]) => void) {
@@ -309,7 +325,6 @@ class SipConnector {
   public async startPresentation(
     mediaStream: MediaStream,
     options: {
-      isP2P?: boolean;
       isNeedReinvite?: boolean;
       contentHint?: TContentHint;
       degradationPreference?: RTCDegradationPreference;
@@ -318,11 +333,11 @@ class SipConnector {
       callLimit?: number;
     } = {},
   ): Promise<MediaStream> {
-    const { isP2P, callLimit, onAddedTransceiver, ...rest } = options;
+    const { callLimit, onAddedTransceiver, ...rest } = options;
 
     return this.presentationManager.startPresentation(
       async () => {
-        await (isP2P === true
+        await (this.isDirectP2PRoom
           ? this.apiManager.sendAvailableContentedStream()
           : this.apiManager.askPermissionToStartPresentation());
       },
@@ -335,13 +350,9 @@ class SipConnector {
     );
   }
 
-  public async stopPresentation(
-    options: { isP2P?: boolean } = {},
-  ): Promise<MediaStream | undefined> {
-    const { isP2P } = options;
-
+  public async stopPresentation(): Promise<MediaStream | undefined> {
     return this.presentationManager.stopPresentation(async () => {
-      await (isP2P === true
+      await (this.isDirectP2PRoom
         ? this.apiManager.sendNotAvailableContentedStream()
         : this.apiManager.sendStoppedPresentation());
     });
@@ -350,7 +361,6 @@ class SipConnector {
   public async updatePresentation(
     mediaStream: MediaStream,
     options: {
-      isP2P?: boolean;
       isNeedReinvite?: boolean;
       contentHint?: TContentHint;
       degradationPreference?: RTCDegradationPreference;
@@ -358,11 +368,11 @@ class SipConnector {
       onAddedTransceiver?: TOnAddedTransceiver;
     } = {},
   ): Promise<MediaStream | undefined> {
-    const { isP2P, onAddedTransceiver, ...rest } = options;
+    const { onAddedTransceiver, ...rest } = options;
 
     return this.presentationManager.updatePresentation(
       async () => {
-        await (isP2P === true
+        await (this.isDirectP2PRoom
           ? this.apiManager.sendAvailableContentedStream()
           : this.apiManager.askPermissionToStartPresentation());
       },
@@ -452,6 +462,18 @@ class SipConnector {
     });
     this.apiManager.on('presentation:must-stop', () => {
       this.mayBeStopPresentationAndNotify();
+    });
+
+    this.apiManager.on('failed-send-room-direct-p2p', ({ error }: { error: unknown }) => {
+      const message = new IncomingResponse();
+
+      message.body = error instanceof Error ? error.message : String(error);
+
+      const cause = JsSIP_C.causes.INTERNAL_ERROR;
+
+      this.callManager.failed(message, cause).catch((endCallError: unknown) => {
+        logger('Failed to end call after failed:', endCallError);
+      });
     });
   }
 

@@ -8,7 +8,7 @@ import { RoleManager } from './RoleManager';
 import { StreamsChangeTracker } from './StreamsChangeTracker';
 import { StreamsManagerProvider } from './StreamsManagerProvider';
 
-import type { RTCSession } from '@krivega/jssip';
+import type { IncomingResponse, RTCSession } from '@krivega/jssip';
 import type { ApiManager } from '@/ApiManager';
 import type { ContentedStreamManager } from '@/ContentedStreamManager';
 import type { TEventMap, TEvents } from './events';
@@ -126,6 +126,18 @@ class CallManager {
     return this.mcuSession.isCallActive;
   }
 
+  public get number(): string | undefined {
+    return this.stateMachine.number;
+  }
+
+  public get isCallInitiator(): boolean {
+    return this.stateMachine.isCallInitiator;
+  }
+
+  public get isDirectP2PRoom(): boolean {
+    return this.stateMachine.isDirectP2PRoom;
+  }
+
   // For testing purposes
   public getStreamsManagerProvider(): StreamsManagerProvider {
     return this.streamsManagerProvider;
@@ -176,7 +188,7 @@ class CallManager {
   public startCall: TStartCall = async (ua, getUri, params) => {
     this.isPendingCall = true;
 
-    this.events.emit('start-call', {
+    this.events.emit(EEvent.START_CALL, {
       number: params.number,
       answer: false,
     });
@@ -206,7 +218,7 @@ class CallManager {
 
     const rtcSession = extractIncomingRTCSession();
 
-    this.events.emit('start-call', {
+    this.events.emit(EEvent.START_CALL, {
       answer: true,
       number: rtcSession.remote_identity.uri.user,
     });
@@ -300,6 +312,16 @@ class CallManager {
     }
 
     return result.applied;
+  }
+
+  public async failed(message: IncomingResponse, cause: string): Promise<void> {
+    this.emitFailedCall(message, cause);
+
+    await this.endCall();
+  }
+
+  private emitFailedCall(message: IncomingResponse, cause: string) {
+    this.events.trigger(EEvent.FAILED, { message, cause, originator: 'local' });
   }
 
   private readonly reset: () => void = () => {

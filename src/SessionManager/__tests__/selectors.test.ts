@@ -85,6 +85,8 @@ describe('sessionSelectors', () => {
         ECallStatus.IDLE,
         ECallStatus.CONNECTING,
         ECallStatus.PURGATORY,
+        ECallStatus.P2P_ROOM,
+        ECallStatus.DIRECT_P2P_ROOM,
         ECallStatus.IN_ROOM,
       ];
 
@@ -254,6 +256,26 @@ describe('sessionSelectors', () => {
       expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
     });
 
+    it('should return true when call status is P2P_ROOM', () => {
+      const snapshot = createMockSnapshot({
+        call: {
+          value: ECallStatus.P2P_ROOM,
+        } as never,
+      });
+
+      expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
+    });
+
+    it('should return true when call status is DIRECT_P2P_ROOM', () => {
+      const snapshot = createMockSnapshot({
+        call: {
+          value: ECallStatus.DIRECT_P2P_ROOM,
+        } as never,
+      });
+
+      expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
+    });
+
     it('should return false when call status is IDLE or CONNECTING', () => {
       const nonInCallStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
 
@@ -268,7 +290,7 @@ describe('sessionSelectors', () => {
   });
 
   describe('selectSystemStatus', () => {
-    it('should return CALL_ACTIVE for IN_ROOM or PURGATORY regardless of connection status (check is done first)', () => {
+    it('should return CALL_ACTIVE for IN_ROOM, PURGATORY, P2P_ROOM or DIRECT_P2P_ROOM regardless of connection status (check is done first)', () => {
       const allConnectionStatuses = [
         EConnectionStatus.IDLE,
         EConnectionStatus.PREPARING,
@@ -279,7 +301,12 @@ describe('sessionSelectors', () => {
         EConnectionStatus.DISCONNECTED,
         EConnectionStatus.FAILED,
       ];
-      const activeCallStatuses = [ECallStatus.IN_ROOM, ECallStatus.PURGATORY];
+      const activeCallStatuses = [
+        ECallStatus.IN_ROOM,
+        ECallStatus.PURGATORY,
+        ECallStatus.P2P_ROOM,
+        ECallStatus.DIRECT_P2P_ROOM,
+      ];
 
       allConnectionStatuses.forEach((connectionStatus) => {
         activeCallStatuses.forEach((callStatus) => {

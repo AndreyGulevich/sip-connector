@@ -1,3 +1,4 @@
+import { IncomingResponse } from '@krivega/jssip';
 import { createAudioMediaStreamTrackMock } from 'webrtc-mock';
 
 import { createManagers } from '@/__fixtures__/createManagers';
@@ -9,7 +10,7 @@ import { EEvent } from '../events';
 import { resolveRecvQuality } from '../quality';
 import { RemoteStreamsManager } from '../RemoteStreamsManager';
 
-import type { EndEvent, RTCSession } from '@krivega/jssip';
+import type { RTCSession } from '@krivega/jssip';
 import type { TRecvQuality } from '../quality';
 import type { TCallRoleSpectator, TCallRoleSpectatorSynthetic } from '../types';
 
@@ -668,7 +669,11 @@ describe('CallManager', () => {
         sendOffer,
       } as TCallRoleSpectator['recvParams']);
 
-      cm.events.trigger('failed', new Error('call failed') as unknown as EndEvent);
+      cm.events.trigger('failed', {
+        originator: 'local',
+        message: new IncomingResponse(),
+        cause: 'call failed',
+      });
       expect(cm.stateMachine.state).toBe('call:idle');
 
       expect(mockRecvSession.instance).toBeUndefined();
@@ -734,6 +739,42 @@ describe('CallManager - дополнительные тесты для покр�
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     callManagerTest.mcuSession.rtcSession = { connection: 'test' };
     expect(callManager.connection).toBe('test');
+  });
+
+  it('number: возвращает number из контекста после start-call (инициатор)', () => {
+    const managers = createManagers();
+    const cm = managers.callManager;
+
+    cm.events.trigger('start-call', { number: '100', answer: false });
+
+    expect(cm.number).toBe('100');
+  });
+
+  it('number: возвращает number из контекста после start-call (принимающая сторона)', () => {
+    const managers = createManagers();
+    const cm = managers.callManager;
+
+    cm.events.trigger('start-call', { number: '200', answer: true });
+
+    expect(cm.number).toBe('200');
+  });
+
+  it('isCallInitiator: возвращает true для инициатора', () => {
+    const managers = createManagers();
+    const cm = managers.callManager;
+
+    cm.events.trigger('start-call', { number: '100', answer: false });
+
+    expect(cm.isCallInitiator).toBe(true);
+  });
+
+  it('isCallInitiator: возвращает false для принимающей стороны', () => {
+    const managers = createManagers();
+    const cm = managers.callManager;
+
+    cm.events.trigger('start-call', { number: '100', answer: true });
+
+    expect(cm.isCallInitiator).toBe(false);
   });
 
   it('establishedRTCSession: возвращает rtcSession если isEstablished', () => {
@@ -840,6 +881,47 @@ describe('CallManager - дополнительные тесты для покр�
     });
 
     await expect(callManager.restartIce()).rejects.toThrow('No rtcSession established');
+  });
+
+  describe('failed', () => {
+    const message = new IncomingResponse();
+
+    it('триггерит failed с переданными message и cause', async () => {
+      const cause = 'call failed';
+      const failedSpy = jest.fn();
+
+      callManager.events.on(EEvent.FAILED, failedSpy);
+
+      await callManager.failed(message, cause);
+
+      expect(failedSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originator: 'local',
+          message,
+          cause,
+        }),
+      );
+    });
+
+    it('вызывает endCall после эмита failed', async () => {
+      const endCallSpy = jest.fn().mockResolvedValue(undefined);
+
+      // @ts-expect-error доступ к приватному члену для теста
+      jest.spyOn(callManager.mcuSession, 'endCall').mockImplementation(endCallSpy);
+
+      await callManager.failed(message, 'test');
+
+      expect(endCallSpy).toHaveBeenCalled();
+    });
+
+    it('при ошибке endCall пробрасывает ошибку', async () => {
+      const endCallError = new Error('end call failed');
+
+      // @ts-expect-error доступ к приватному члену для теста
+      jest.spyOn(callManager.mcuSession, 'endCall').mockRejectedValue(endCallError);
+
+      await expect(callManager.failed(message, 'test')).rejects.toThrow('end call failed');
+    });
   });
 
   it('handleChangedRemoteTracks: не эмитит, если менеджер не активный', () => {

@@ -37,6 +37,7 @@ describe('ApiManager (NEW_INFO handling)', () => {
       connectionManager,
       callManager,
     });
+    callManager.subscribeToApiEvents(apiManager);
   });
 
   describe('обработка NEW_INFO событий', () => {
