@@ -12,6 +12,7 @@ export enum EState {
   CONNECTED = 'connection:connected',
   REGISTERED = 'connection:registered',
   ESTABLISHED = 'connection:established',
+  DISCONNECTING = 'connection:disconnecting',
   DISCONNECTED = 'connection:disconnected',
 }
 
@@ -23,6 +24,7 @@ enum EAction {
 export enum EEvents {
   START_CONNECT = 'START_CONNECT',
   START_INIT_UA = 'START_INIT_UA',
+  START_DISCONNECT = 'START_DISCONNECT',
   UA_CONNECTED = 'UA_CONNECTED',
   UA_REGISTERED = 'UA_REGISTERED',
   UA_UNREGISTERED = 'UA_UNREGISTERED',
@@ -134,6 +136,17 @@ const connectionMachine = setup({
             },
           },
         },
+        [EEvents.START_DISCONNECT]: {
+          target: EState.DISCONNECTING,
+          actions: {
+            type: EAction.LOG_TRANSITION,
+            params: {
+              from: EState.CONNECTING,
+              to: EState.DISCONNECTING,
+              event: EEvents.START_DISCONNECT,
+            },
+          },
+        },
         [EEvents.UA_DISCONNECTED]: {
           target: EState.DISCONNECTED,
           actions: {
@@ -172,6 +185,17 @@ const connectionMachine = setup({
               from: EState.CONNECTED,
               to: EState.REGISTERED,
               event: EEvents.UA_REGISTERED,
+            },
+          },
+        },
+        [EEvents.START_DISCONNECT]: {
+          target: EState.DISCONNECTING,
+          actions: {
+            type: EAction.LOG_TRANSITION,
+            params: {
+              from: EState.CONNECTED,
+              to: EState.DISCONNECTING,
+              event: EEvents.START_DISCONNECT,
             },
           },
         },
@@ -216,6 +240,17 @@ const connectionMachine = setup({
             },
           },
         },
+        [EEvents.START_DISCONNECT]: {
+          target: EState.DISCONNECTING,
+          actions: {
+            type: EAction.LOG_TRANSITION,
+            params: {
+              from: EState.REGISTERED,
+              to: EState.DISCONNECTING,
+              event: EEvents.START_DISCONNECT,
+            },
+          },
+        },
         [EEvents.UA_DISCONNECTED]: {
           target: EState.DISCONNECTED,
           actions: {
@@ -235,6 +270,17 @@ const connectionMachine = setup({
         params: { state: EState.ESTABLISHED },
       },
       on: {
+        [EEvents.START_DISCONNECT]: {
+          target: EState.DISCONNECTING,
+          actions: {
+            type: EAction.LOG_TRANSITION,
+            params: {
+              from: EState.ESTABLISHED,
+              to: EState.DISCONNECTING,
+              event: EEvents.START_DISCONNECT,
+            },
+          },
+        },
         [EEvents.UA_DISCONNECTED]: {
           target: EState.DISCONNECTED,
           actions: {
@@ -254,6 +300,25 @@ const connectionMachine = setup({
               from: EState.ESTABLISHED,
               to: EState.IDLE,
               event: EEvents.RESET,
+            },
+          },
+        },
+      },
+    },
+    [EState.DISCONNECTING]: {
+      entry: {
+        type: EAction.LOG_STATE_CHANGE,
+        params: { state: EState.DISCONNECTING },
+      },
+      on: {
+        [EEvents.UA_DISCONNECTED]: {
+          target: EState.DISCONNECTED,
+          actions: {
+            type: EAction.LOG_TRANSITION,
+            params: {
+              from: EState.DISCONNECTING,
+              to: EState.DISCONNECTED,
+              event: EEvents.UA_DISCONNECTED,
             },
           },
         },
@@ -335,6 +400,10 @@ export class ConnectionStateMachine extends BaseStateMachine<
     return this.hasState(EState.ESTABLISHED);
   }
 
+  public get isDisconnecting(): boolean {
+    return this.hasState(EState.DISCONNECTING);
+  }
+
   public get isDisconnected(): boolean {
     return this.hasState(EState.DISCONNECTED);
   }
@@ -362,6 +431,10 @@ export class ConnectionStateMachine extends BaseStateMachine<
 
   public startInitUa(): void {
     this.toStartInitUa();
+  }
+
+  public startDisconnect(): void {
+    this.toStartDisconnect();
   }
 
   public reset(): void {
@@ -412,6 +485,10 @@ export class ConnectionStateMachine extends BaseStateMachine<
     this.sendEvent({ type: EEvents.START_INIT_UA });
   };
 
+  private readonly toStartDisconnect = (): void => {
+    this.sendEvent({ type: EEvents.START_DISCONNECT });
+  };
+
   private readonly toConnected = (): void => {
     this.sendEvent({ type: EEvents.UA_CONNECTED });
   };
@@ -436,6 +513,7 @@ export class ConnectionStateMachine extends BaseStateMachine<
     this.events.on('connected', this.toConnected);
     this.events.on('registered', this.toRegistered);
     this.events.on('unregistered', this.toUnregistered);
+    this.events.on('disconnecting', this.toStartDisconnect);
     this.events.on('disconnected', this.toDisconnected);
     this.events.on('registrationFailed', this.toDisconnected);
     this.events.on('connect-failed', this.toDisconnected);
@@ -444,6 +522,7 @@ export class ConnectionStateMachine extends BaseStateMachine<
       this.events.off('connected', this.toConnected);
       this.events.off('registered', this.toRegistered);
       this.events.off('unregistered', this.toUnregistered);
+      this.events.off('disconnecting', this.toStartDisconnect);
       this.events.off('disconnected', this.toDisconnected);
       this.events.off('registrationFailed', this.toDisconnected);
       this.events.off('connect-failed', this.toDisconnected);

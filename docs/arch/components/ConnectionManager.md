@@ -25,7 +25,7 @@
 Управление состояниями SIP-соединения (XState)
 
 - Валидация переходов между состояниями
-- Публичный API с геттерами: `isIdle`, `isPreparing`, `isConnecting`, `isConnected`, `isRegistered`, `isEstablished`, `isDisconnected`, `isPending`, `isPendingConnect`, `isPendingInitUa`, `isActiveConnection`
+- Публичный API с геттерами: `isIdle`, `isPreparing`, `isConnecting`, `isConnected`, `isRegistered`, `isEstablished`, `isDisconnected`, `isPending`, `isPendingConnect`, `isPendingInitUa`, `isActiveConnection`, `isDisconnecting`
 - Методы: `reset()`, `startConnect()`, `startInitUa()`, `onStateChange()`, `canTransition()`, `getValidEvents()`
 - При ошибках (registrationFailed, connect-failed) переход сразу в DISCONNECTED
 - Автоматическое логирование всех переходов состояний

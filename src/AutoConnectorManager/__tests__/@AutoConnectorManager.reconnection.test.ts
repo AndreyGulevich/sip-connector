@@ -198,7 +198,10 @@ describe('AutoConnectorManager - Reconnection', () => {
       // Ждем произвольное время, чтобы убедиться, что подключение не завершено
       await delayPromise(DELAY);
 
-      expect(sipConnector.connectionManager.connectionState).toBe('connection:established');
+      // После resume вызывается disconnect(): состояние либо ещё established, либо уже disconnecting
+      const state = sipConnector.connectionManager.connectionState;
+
+      expect(['connection:established', 'connection:disconnecting']).toContain(state);
 
       // триггерим событие отключения от ua
       // @ts-ignore приватное свойство
