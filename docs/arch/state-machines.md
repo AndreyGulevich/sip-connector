@@ -246,14 +246,14 @@ stateDiagram-v2
 
 ### Состояния ESystemStatus
 
-| Состояние           | Описание                                 | Условия                                                     |
-| :------------------ | :--------------------------------------- | :---------------------------------------------------------- |
-| `DISCONNECTED`      | Система не подключена                    | connection: IDLE или DISCONNECTED                           |
-| `CONNECTING`        | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED |
-| `READY_TO_CALL`     | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                         |
-| `CALL_CONNECTING`   | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                   |
+| Состояние           | Описание                                 | Условия                                                                         |
+| :------------------ | :--------------------------------------- | :------------------------------------------------------------------------------ |
+| `DISCONNECTED`      | Система не подключена                    | connection: IDLE или DISCONNECTED                                               |
+| `CONNECTING`        | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED                     |
+| `READY_TO_CALL`     | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                                             |
+| `CALL_CONNECTING`   | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                                       |
 | `CALL_ACTIVE`       | Звонок активен                           | connection: ESTABLISHED, call: IN_ROOM, PURGATORY, P2P_ROOM или DIRECT_P2P_ROOM |
-| `CONNECTION_FAILED` | Ошибка соединения                        | connection: FAILED                                          |
+| `CONNECTION_FAILED` | Ошибка соединения                        | connection: FAILED                                                              |
 
 ### Использование
 

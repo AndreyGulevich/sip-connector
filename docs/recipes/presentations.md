@@ -43,7 +43,7 @@ await facade.stopPresentation();
 | ----------------------- | -------------------------------- | --------------------------------------- |
 | `contentHint`           | Тип контента для оптимизации     | `'detail'`, `'text'`, `'motion'`        |
 | `degradationPreference` | Приоритет при ухудшении качества | `'maintain-resolution'` для презентаций |
-| `sendEncodings`         | Параметры слоёв кодирования     | Массив RTCRtpEncodingParameters         |
+| `sendEncodings`         | Параметры слоёв кодирования      | Массив RTCRtpEncodingParameters         |
 
 ## Адаптивные настройки в зависимости от типа контента
 
