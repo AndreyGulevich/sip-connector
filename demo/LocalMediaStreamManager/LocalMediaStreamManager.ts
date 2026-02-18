@@ -122,12 +122,6 @@ export class LocalMediaStreamManager {
    * Включает камеру
    */
   public enableCamera({ silent = false }: { silent?: boolean }): boolean {
-    console.log(
-      '🚀 temp  ~ LocalMediaStreamManager.ts:126 ~ LocalMediaStreamManager ~ enableCamera ~ silent:',
-      { silent },
-      this.isEnabledCam(),
-    );
-
     if (this.isEnabledCam()) {
       return false;
     }
@@ -148,10 +142,6 @@ export class LocalMediaStreamManager {
       this.state.isEnabledCam = true;
 
       if (!silent) {
-        console.log(
-          '🚀 temp  ~ LocalMediaStreamManager.ts:153 ~ LocalMediaStreamManager ~ enableCamera ~ this.state:',
-          this.state,
-        );
         this.events.emit('cam:enable', this.state);
       }
     }
