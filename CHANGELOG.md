@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [26.1.0](https://github.com/Krivega/sip-connector/compare/v26.0.0...v26.1.0) (2026-02-18)
+
+### Features
+
+- add SPECTATOR_MODE support in headers and related tests ([bc4e1c6](https://github.com/Krivega/sip-connector/commit/bc4e1c6b39a04629d37c49a7bcb677ae1d1a85eb))
+- **demo:** enhance media control and participant role management ([801853d](https://github.com/Krivega/sip-connector/commit/801853df4d3a2630dd3c60d90bf9e5257e7b8738))
+- **demo:** implement LocalMediaStreamManager for media control and state management ([d3df51a](https://github.com/Krivega/sip-connector/commit/d3df51a2e38faf51ebb4ca9ca9f8d156e11d9a05))
+- enhance participant move request handling with isAvailableSendingMedia flag ([2e9dc95](https://github.com/Krivega/sip-connector/commit/2e9dc95e0b18d20b476825136fb7dea824663dba))
+- **RecvSession:** enhance renegotiation process with improved state management and error handling ([57a5c88](https://github.com/Krivega/sip-connector/commit/57a5c887f95196c71b7f17a2533be967516c5e6f))
+
+### Bug Fixes
+
+- **RecvSession:** increase SEND_OFFER_DELAY_BETWEEN_CALLS from 100 to 500 ([26febe8](https://github.com/Krivega/sip-connector/commit/26febe818ad216a6d05885497e31e7003dafaa6c))
+
 ## [26.0.0](https://github.com/Krivega/sip-connector/compare/v25.4.1...v26.0.0) (2026-02-18)
 
 ### ⚠ BREAKING CHANGES
