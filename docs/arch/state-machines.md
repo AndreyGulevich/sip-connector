@@ -190,7 +190,7 @@ stateDiagram-v2
   - IN_ROOM → DISCONNECTING (CALL.START_DISCONNECT; событие `end-call`)
   - IN_ROOM → IDLE (CALL.RESET)
   - DISCONNECTING → IDLE (CALL.RESET; в т.ч. при событии `ended` или `failed`)
-- Внутреннее состояние EVALUATE: переход в IN_ROOM/DIRECT_P2P_ROOM/P2P_ROOM/PURGATORY/CONNECTING/IDLE по контексту после действий
+- Внутреннее состояние EVALUATE: переход в DISCONNECTING (при `prepareDisconnect`/`pendingDisconnect`), IN_ROOM, DIRECT_P2P_ROOM, P2P_ROOM, PURGATORY, CONNECTING или IDLE по контексту после действий. Переход в DISCONNECTING идёт через EVALUATE: `CALL.START_DISCONNECT` → `EVALUATE` (action `prepareDisconnect`: очистка контекста + флаг `pendingDisconnect`) → `DISCONNECTING` (action `reset` для сброса флага)
 - Логика определения состояний:
   - **DIRECT_P2P_ROOM**: приоритет выше P2P_ROOM; определяется по флагу `isDirectPeerToPeer=true` в событии `enter-room` или по паттерну имени комнаты `/^directP2P.+to.+$/i`
   - **P2P_ROOM**: определяется по паттерну имени комнаты `/^p2p.+to.+$/i` (без префикса `direct`)

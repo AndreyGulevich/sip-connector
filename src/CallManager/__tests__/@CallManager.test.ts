@@ -159,6 +159,22 @@ describe('CallManager', () => {
     await expect(callManager.endCall()).resolves.toBeUndefined();
   });
 
+  describe('isDisconnecting', () => {
+    it('возвращает false в IDLE', () => {
+      expect(callManager.isDisconnecting).toBe(false);
+    });
+
+    it('возвращает true при переходе в DISCONNECTING после end-call', () => {
+      callManager.events.trigger('start-call', { number: '100', answer: false });
+      expect(callManager.stateMachine.state).toBe('call:connecting');
+
+      callManager.events.trigger('end-call');
+
+      expect(callManager.stateMachine.state).toBe('call:disconnecting');
+      expect(callManager.isDisconnecting).toBe(true);
+    });
+  });
+
   it('getRecvQuality: возвращает текущее качество', () => {
     jest.spyOn(callManager.stateMachine, 'number', 'get').mockReturnValue('123');
     jest.spyOn(callManager.stateMachine, 'token', 'get').mockReturnValue('test-token');

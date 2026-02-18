@@ -17,8 +17,7 @@ export enum EState {
   DISCONNECTING = 'call:disconnecting',
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-type TIdleContext = {};
+type TIdleContext = { pendingDisconnect?: true };
 type TConnectingContext = {
   number: string;
   answer: boolean;
@@ -139,7 +138,7 @@ const hasInRoomContext = (context: TContext): context is TInRoomContext => {
 
 const initialContext: TIdleContext = {};
 
-const clearCallContext = (): Partial<TContext> => {
+const clearCallContext = (): Partial<TContext> & Partial<TIdleContext> => {
   return {
     number: undefined,
     answer: undefined,
@@ -147,6 +146,7 @@ const clearCallContext = (): Partial<TContext> => {
     participantName: undefined,
     token: undefined,
     isDirectPeerToPeer: undefined,
+    pendingDisconnect: undefined,
   };
 };
 
@@ -204,6 +204,12 @@ const callMachine = setup({
       };
     }),
     reset: assign(clearCallContext()),
+    prepareDisconnect: assign(() => {
+      return {
+        ...clearCallContext(),
+        pendingDisconnect: true as const,
+      };
+    }),
   },
 }).createMachine({
   id: 'call',
@@ -229,7 +235,8 @@ const callMachine = setup({
           actions: 'setTokenInfo',
         },
         'CALL.START_DISCONNECT': {
-          target: EState.DISCONNECTING,
+          target: EVALUATE,
+          actions: 'prepareDisconnect',
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -248,7 +255,8 @@ const callMachine = setup({
           actions: 'setTokenInfo',
         },
         'CALL.START_DISCONNECT': {
-          target: EState.DISCONNECTING,
+          target: EVALUATE,
+          actions: 'prepareDisconnect',
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -258,6 +266,13 @@ const callMachine = setup({
     },
     [EVALUATE]: {
       always: [
+        {
+          target: EState.DISCONNECTING,
+          guard: ({ context }) => {
+            return (context as TIdleContext).pendingDisconnect === true;
+          },
+          actions: 'reset',
+        },
         {
           target: EState.IN_ROOM,
           guard: ({ context }) => {
@@ -304,7 +319,8 @@ const callMachine = setup({
           actions: 'setTokenInfo',
         },
         'CALL.START_DISCONNECT': {
-          target: EState.DISCONNECTING,
+          target: EVALUATE,
+          actions: 'prepareDisconnect',
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -323,7 +339,8 @@ const callMachine = setup({
           actions: 'setTokenInfo',
         },
         'CALL.START_DISCONNECT': {
-          target: EState.DISCONNECTING,
+          target: EVALUATE,
+          actions: 'prepareDisconnect',
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -342,7 +359,8 @@ const callMachine = setup({
           actions: 'setTokenInfo',
         },
         'CALL.START_DISCONNECT': {
-          target: EState.DISCONNECTING,
+          target: EVALUATE,
+          actions: 'prepareDisconnect',
         },
         'CALL.RESET': {
           target: EVALUATE,
