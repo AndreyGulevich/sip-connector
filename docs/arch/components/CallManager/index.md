@@ -35,6 +35,8 @@
 - Из `DISCONNECTING` переход в `IDLE` при завершении отключения (события `ended` или `failed` → `CALL.RESET`)
 - Предотвращение недопустимых переходов с логированием
 
+Подробнее см. [State Machine](./state-machine.md).
+
 ### MCUSession
 
 Управление основным RTCSession для участников конференции

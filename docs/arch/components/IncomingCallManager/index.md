@@ -28,3 +28,5 @@
 - Геттеры контекста: `remoteCallerData`, `lastReason`
 - Методы: `reset()`, `toConsumed()`
 - Полное логирование всех переходов состояний
+
+Подробнее см. [State Machine](./state-machine.md).

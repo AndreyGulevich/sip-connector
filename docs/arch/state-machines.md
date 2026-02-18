@@ -123,15 +123,15 @@ stateDiagram-v2
 
 ## Детальное описание машин состояний
 
-- [ConnectionStateMachine](./state-machines/connection.md) — управление состояниями SIP соединения
-- [CallStateMachine](./state-machines/call.md) — управление состояниями звонка
-- [PresentationStateMachine](./state-machines/presentation.md) — управление состояниями демонстрации экрана
-- [IncomingCallStateMachine](./state-machines/incoming.md) — управление состояниями входящих звонков
+- [ConnectionStateMachine](./components/ConnectionManager/state-machine.md) — управление состояниями SIP соединения
+- [CallStateMachine](./components/CallManager/state-machine.md) — управление состояниями звонка
+- [PresentationStateMachine](./components/PresentationManager/state-machine.md) — управление состояниями демонстрации экрана
+- [IncomingCallStateMachine](./components/IncomingCallManager/state-machine.md) — управление состояниями входящих звонков
 
 ## Комбинированное состояние системы
 
-См. [ESystemStatus](./state-machines/system-status.md) — механизм комбинирования состояний Connection и Call машин в единое состояние для упрощения работы клиентов.
+См. [ESystemStatus](./system-status.md) — механизм комбинирования состояний Connection и Call машин в единое состояние для упрощения работы клиентов.
 
 ## Тестирование
 
-См. [Тестирование машин состояний](./state-machines/testing.md) — описание подходов к тестированию машин состояний.
+См. [Тестирование машин состояний](./state-machines-testing.md) — описание подходов к тестированию машин состояний.

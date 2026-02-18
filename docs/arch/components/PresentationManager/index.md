@@ -28,3 +28,5 @@
 - Типобезопасная обработка ошибок (lastError: Error | undefined)
 - Методы: `reset()`
 - Полное логирование всех переходов состояний
+
+Подробнее см. [State Machine](./state-machine.md).

@@ -29,3 +29,5 @@
 - Методы: `reset()`, `startConnect()`, `startInitUa()`, `onStateChange()`, `canTransition()`, `getValidEvents()`
 - При ошибках (registrationFailed, connect-failed) переход сразу в DISCONNECTED
 - Автоматическое логирование всех переходов состояний
+
+Подробнее см. [State Machine](./state-machine.md).
