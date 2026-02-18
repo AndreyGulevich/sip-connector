@@ -14,6 +14,7 @@ export enum EState {
   P2P_ROOM = 'call:p2pRoom',
   DIRECT_P2P_ROOM = 'call:directP2pRoom',
   IN_ROOM = 'call:inRoom',
+  DISCONNECTING = 'call:disconnecting',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -65,6 +66,7 @@ type TCallEvent =
       isDirectPeerToPeer?: boolean;
     }
   | { type: 'CALL.TOKEN_ISSUED'; token: string }
+  | { type: 'CALL.START_DISCONNECT' }
   | { type: 'CALL.RESET' };
 
 const EVALUATE = 'evaluate' as const;
@@ -226,6 +228,9 @@ const callMachine = setup({
           target: EVALUATE,
           actions: 'setTokenInfo',
         },
+        'CALL.START_DISCONNECT': {
+          target: EState.DISCONNECTING,
+        },
         'CALL.RESET': {
           target: EVALUATE,
           actions: 'reset',
@@ -241,6 +246,9 @@ const callMachine = setup({
         'CALL.TOKEN_ISSUED': {
           target: EVALUATE,
           actions: 'setTokenInfo',
+        },
+        'CALL.START_DISCONNECT': {
+          target: EState.DISCONNECTING,
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -295,6 +303,9 @@ const callMachine = setup({
           target: EVALUATE,
           actions: 'setTokenInfo',
         },
+        'CALL.START_DISCONNECT': {
+          target: EState.DISCONNECTING,
+        },
         'CALL.RESET': {
           target: EVALUATE,
           actions: 'reset',
@@ -310,6 +321,9 @@ const callMachine = setup({
         'CALL.TOKEN_ISSUED': {
           target: EVALUATE,
           actions: 'setTokenInfo',
+        },
+        'CALL.START_DISCONNECT': {
+          target: EState.DISCONNECTING,
         },
         'CALL.RESET': {
           target: EVALUATE,
@@ -327,6 +341,17 @@ const callMachine = setup({
           target: EVALUATE,
           actions: 'setTokenInfo',
         },
+        'CALL.START_DISCONNECT': {
+          target: EState.DISCONNECTING,
+        },
+        'CALL.RESET': {
+          target: EVALUATE,
+          actions: 'reset',
+        },
+      },
+    },
+    [EState.DISCONNECTING]: {
+      on: {
         'CALL.RESET': {
           target: EVALUATE,
           actions: 'reset',
@@ -369,6 +394,10 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
     return this.state === EState.IN_ROOM;
   }
 
+  public get isDisconnecting(): boolean {
+    return this.state === EState.DISCONNECTING;
+  }
+
   /** Контекст в состоянии IN_ROOM; undefined в остальных состояниях. Использовать вместо каста context. */
   public get inRoomContext(): TInRoomContext | undefined {
     const { context } = this;
@@ -378,10 +407,6 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
 
   public get isActive(): boolean {
     return this.isInRoom || this.isInPurgatory || this.isP2PRoom || this.isDirectP2PRoom;
-  }
-
-  public get isPending(): boolean {
-    return this.isConnecting;
   }
 
   public get number() {
@@ -456,6 +481,12 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
     this.addSubscription(
       events.on('start-call', ({ number, answer }) => {
         this.send({ type: 'CALL.CONNECTING', number, answer });
+      }),
+    );
+
+    this.addSubscription(
+      events.on('end-call', () => {
+        this.send({ type: 'CALL.START_DISCONNECT' });
       }),
     );
 

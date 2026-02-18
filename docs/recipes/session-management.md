@@ -65,13 +65,24 @@ const unsubscribeSystem = sipConnector.session.subscribe(
       case ESystemStatus.READY_TO_CALL:
         console.log('Система готова к звонкам');
         break;
+      case ESystemStatus.CALL_CONNECTING:
+        console.log('Идет установка звонка');
+        break;
+      case ESystemStatus.CALL_DISCONNECTING:
+        console.log('Идет процесс отключения звонка');
+        break;
       case ESystemStatus.CALL_ACTIVE:
         console.log('Звонок активен');
         break;
       case ESystemStatus.CONNECTING:
         console.log('Идет подключение');
         break;
-      // ... другие состояния
+      case ESystemStatus.DISCONNECTING:
+        console.log('Идет процесс отключения');
+        break;
+      case ESystemStatus.DISCONNECTED:
+        console.log('Система не подключена');
+        break;
     }
   },
 );
@@ -99,7 +110,8 @@ unsubscribe(); // Когда больше не нужно слушать
 - `CONNECTING` - идет процесс подключения (connection: PREPARING/CONNECTING/CONNECTED/REGISTERED)
 - `READY_TO_CALL` - соединение установлено, готово к звонкам (connection: ESTABLISHED, call: IDLE)
 - `CALL_CONNECTING` - идет установка звонка (connection: ESTABLISHED, call: CONNECTING)
-- `CALL_ACTIVE` - звонок активен (connection: ESTABLISHED, call: IN_ROOM)
+- `CALL_DISCONNECTING` - идет процесс отключения звонка (connection: ESTABLISHED, call: DISCONNECTING)
+- `CALL_ACTIVE` - звонок активен (connection: ESTABLISHED, call: IN_ROOM, PURGATORY, P2P_ROOM или DIRECT_P2P_ROOM)
 
 Этот селектор позволяет клиенту однозначно определить текущее состояние системы без необходимости анализировать комбинации состояний Connection и Call вручную.
 

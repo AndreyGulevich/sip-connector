@@ -128,6 +128,62 @@ describe('CallStateMachine', () => {
         event: { type: 'CALL.RESET' },
         expected: EState.IDLE,
       },
+      {
+        title: 'CALL.START_DISCONNECT из CONNECTING в DISCONNECTING',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+        },
+        event: { type: 'CALL.START_DISCONNECT' },
+        expected: EState.DISCONNECTING,
+      },
+      {
+        title: 'CALL.START_DISCONNECT из IN_ROOM в DISCONNECTING',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+          machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+        },
+        event: { type: 'CALL.START_DISCONNECT' },
+        expected: EState.DISCONNECTING,
+      },
+      {
+        title: 'CALL.START_DISCONNECT из PURGATORY в DISCONNECTING',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+        },
+        event: { type: 'CALL.START_DISCONNECT' },
+        expected: EState.DISCONNECTING,
+      },
+      {
+        title: 'CALL.START_DISCONNECT из P2P_ROOM в DISCONNECTING',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...p2pRoomPayload });
+        },
+        event: { type: 'CALL.START_DISCONNECT' },
+        expected: EState.DISCONNECTING,
+      },
+      {
+        title: 'CALL.START_DISCONNECT из DIRECT_P2P_ROOM в DISCONNECTING',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...directP2pRoomPayload });
+        },
+        event: { type: 'CALL.START_DISCONNECT' },
+        expected: EState.DISCONNECTING,
+      },
+      {
+        title: 'CALL.RESET из DISCONNECTING в IDLE',
+        arrange: () => {
+          machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+          machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+          machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+          machine.send({ type: 'CALL.START_DISCONNECT' });
+        },
+        event: { type: 'CALL.RESET' },
+        expected: EState.IDLE,
+      },
     ];
 
     it.each(transitions)('$title', ({ arrange, event, expected }) => {
@@ -225,14 +281,17 @@ describe('CallStateMachine', () => {
       expect(machine.isDirectP2PRoom).toBe(false);
     });
 
-    it('isPending должен возвращать true только для CONNECTING', () => {
-      expect(machine.isPending).toBe(false);
+    it('isDisconnecting должен возвращать true только для DISCONNECTING', () => {
+      expect(machine.isDisconnecting).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
-      expect(machine.isPending).toBe(true);
-      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
-      expect(machine.isPending).toBe(false);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.isDisconnecting).toBe(false);
+      machine.send({ type: 'CALL.START_DISCONNECT' });
+      expect(machine.isDisconnecting).toBe(true);
+      machine.send({ type: 'CALL.RESET' });
+      expect(machine.isDisconnecting).toBe(false);
     });
-
     it('isActive должен возвращать true для IN_ROOM, PURGATORY, P2P_ROOM и DIRECT_P2P_ROOM', () => {
       expect(machine.isActive).toBe(false);
       machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
@@ -299,6 +358,20 @@ describe('CallStateMachine', () => {
       events.trigger('failed', undefined as never);
 
       expect(machine.state).toBe(EState.IDLE);
+      expect(machine.inRoomContext).toBeUndefined();
+    });
+
+    it('возвращает undefined в DISCONNECTING (не IN_ROOM)', () => {
+      machine.send({ type: 'CALL.CONNECTING', ...connectPayload });
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.state).toBe(EState.IN_ROOM);
+      expect(machine.inRoomContext).toBeDefined();
+
+      machine.send({ type: 'CALL.START_DISCONNECT' });
+
+      expect(machine.state).toBe(EState.DISCONNECTING);
+      // inRoomContext возвращает undefined, так как состояние не IN_ROOM
       expect(machine.inRoomContext).toBeUndefined();
     });
 
@@ -469,6 +542,62 @@ describe('CallStateMachine', () => {
 
     it('должен переходить в IDLE при событии failed', () => {
       events.trigger('start-call', connectPayload);
+
+      events.trigger('failed', undefined as never);
+
+      expect(machine.state).toBe(EState.IDLE);
+      expect(machine.context).toEqual({});
+    });
+
+    it('должен переходить в DISCONNECTING при событии end-call из IN_ROOM', () => {
+      events.trigger('start-call', connectPayload);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      expect(machine.state).toBe(EState.IN_ROOM);
+
+      events.trigger('end-call');
+
+      expect(machine.state).toBe(EState.DISCONNECTING);
+    });
+
+    it('должен переходить в DISCONNECTING при событии end-call из CONNECTING', () => {
+      events.trigger('start-call', connectPayload);
+      expect(machine.state).toBe(EState.CONNECTING);
+
+      events.trigger('end-call');
+
+      expect(machine.state).toBe(EState.DISCONNECTING);
+    });
+
+    it('должен переходить в DISCONNECTING при событии end-call из PURGATORY', () => {
+      events.trigger('start-call', connectPayload);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...purgatoryPayload });
+      expect(machine.state).toBe(EState.PURGATORY);
+
+      events.trigger('end-call');
+
+      expect(machine.state).toBe(EState.DISCONNECTING);
+    });
+
+    it('должен переходить в IDLE из DISCONNECTING при событии ended', () => {
+      events.trigger('start-call', connectPayload);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      events.trigger('end-call');
+      expect(machine.state).toBe(EState.DISCONNECTING);
+
+      events.trigger('ended', {} as never);
+
+      expect(machine.state).toBe(EState.IDLE);
+      expect(machine.context).toEqual({});
+    });
+
+    it('должен переходить в IDLE из DISCONNECTING при событии failed', () => {
+      events.trigger('start-call', connectPayload);
+      machine.send({ type: 'CALL.ENTER_ROOM', ...room1Payload });
+      machine.send({ type: 'CALL.TOKEN_ISSUED', token: token1Context.token });
+      events.trigger('end-call');
+      expect(machine.state).toBe(EState.DISCONNECTING);
 
       events.trigger('failed', undefined as never);
 

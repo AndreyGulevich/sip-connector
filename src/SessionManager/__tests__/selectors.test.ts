@@ -89,6 +89,7 @@ describe('sessionSelectors', () => {
         ECallStatus.P2P_ROOM,
         ECallStatus.DIRECT_P2P_ROOM,
         ECallStatus.IN_ROOM,
+        ECallStatus.DISCONNECTING,
       ];
 
       statuses.forEach((status) => {
@@ -277,8 +278,12 @@ describe('sessionSelectors', () => {
       expect(sessionSelectors.selectIsInCall(snapshot)).toBe(true);
     });
 
-    it('should return false when call status is IDLE or CONNECTING', () => {
-      const nonInCallStatuses = [ECallStatus.IDLE, ECallStatus.CONNECTING];
+    it('should return false when call status is IDLE, CONNECTING or DISCONNECTING', () => {
+      const nonInCallStatuses = [
+        ECallStatus.IDLE,
+        ECallStatus.CONNECTING,
+        ECallStatus.DISCONNECTING,
+      ];
 
       nonInCallStatuses.forEach((status) => {
         const snapshot = createMockSnapshot({
@@ -531,6 +536,19 @@ describe('sessionSelectors', () => {
       expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_CONNECTING);
     });
 
+    it('should return CALL_DISCONNECTING when connection is ESTABLISHED and call is DISCONNECTING', () => {
+      const snapshot = createMockSnapshot({
+        connection: {
+          value: EConnectionStatus.ESTABLISHED,
+        } as never,
+        call: {
+          value: ECallStatus.DISCONNECTING,
+        } as never,
+      });
+
+      expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_DISCONNECTING);
+    });
+
     it('should return CALL_ACTIVE when connection is ESTABLISHED and call is IN_ROOM', () => {
       const snapshot = createMockSnapshot({
         connection: {
@@ -542,6 +560,50 @@ describe('sessionSelectors', () => {
       });
 
       expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.CALL_ACTIVE);
+    });
+
+    it('should return CALL_DISCONNECTING only when connection is ESTABLISHED and call is DISCONNECTING', () => {
+      // Если connection не ESTABLISHED, то CALL_DISCONNECTING не должен возвращаться
+      // Активные звонки имеют приоритет, но DISCONNECTING не является активным состоянием
+      const testCases = [
+        {
+          connectionStatus: EConnectionStatus.IDLE,
+          expectedStatus: ESystemStatus.DISCONNECTED,
+        },
+        {
+          connectionStatus: EConnectionStatus.DISCONNECTED,
+          expectedStatus: ESystemStatus.DISCONNECTED,
+        },
+        {
+          connectionStatus: EConnectionStatus.DISCONNECTING,
+          expectedStatus: ESystemStatus.DISCONNECTING,
+        },
+        {
+          connectionStatus: EConnectionStatus.PREPARING,
+          expectedStatus: ESystemStatus.CONNECTING,
+        },
+        {
+          connectionStatus: EConnectionStatus.CONNECTING,
+          expectedStatus: ESystemStatus.CONNECTING,
+        },
+        {
+          connectionStatus: EConnectionStatus.CONNECTED,
+          expectedStatus: ESystemStatus.CONNECTING,
+        },
+        {
+          connectionStatus: EConnectionStatus.REGISTERED,
+          expectedStatus: ESystemStatus.CONNECTING,
+        },
+      ];
+
+      testCases.forEach(({ connectionStatus, expectedStatus }) => {
+        const snapshot = createMockSnapshot({
+          connection: { value: connectionStatus } as never,
+          call: { value: ECallStatus.DISCONNECTING } as never,
+        });
+
+        expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(expectedStatus);
+      });
     });
 
     it('should return READY_TO_CALL as fallback for unknown call status when connection is ESTABLISHED', () => {

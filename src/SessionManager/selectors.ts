@@ -89,6 +89,9 @@ const selectSystemStatus = (snapshot: TSessionSnapshot): ESystemStatus => {
     case ECallStatus.CONNECTING: {
       return ESystemStatus.CALL_CONNECTING;
     }
+    case ECallStatus.DISCONNECTING: {
+      return ESystemStatus.CALL_DISCONNECTING;
+    }
     default: {
       // Fallback на READY_TO_CALL для неизвестных состояний call
       return ESystemStatus.READY_TO_CALL;

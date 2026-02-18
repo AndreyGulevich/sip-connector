@@ -138,6 +138,10 @@ class CallManager {
     return this.stateMachine.isDirectP2PRoom;
   }
 
+  public get isDisconnecting(): boolean {
+    return this.stateMachine.isDisconnecting;
+  }
+
   // For testing purposes
   public getStreamsManagerProvider(): StreamsManagerProvider {
     return this.streamsManagerProvider;
@@ -199,6 +203,8 @@ class CallManager {
   };
 
   public async endCall(): Promise<void> {
+    this.events.emit(EEvent.END_CALL);
+
     return this.mcuSession.endCall();
   }
 

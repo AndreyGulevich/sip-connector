@@ -28,9 +28,11 @@
 Управление состояниями звонка (XState)
 
 - Валидация переходов между состояниями
-- Публичный API с геттерами: `isIdle`, `isConnecting`, `isAccepted`, `isInCall`, `isEnded`, `isFailed`, `isPending`, `isActive`
-- Типобезопасная обработка ошибок (lastError: Error)
-- Метод `reset()` для перехода в начальное состояние
+- Публичный API с геттерами: `isIdle`, `isConnecting`, `isInPurgatory`, `isP2PRoom`, `isDirectP2PRoom`, `isInRoom`, `isDisconnecting`, `isPending`, `isActive`
+- Геттер контекста: `inRoomContext` (возвращает контекст только в состоянии IN_ROOM)
+- Методы: `reset()`, `send(event)`, `subscribeToApiEvents(apiManager)`
+- При вызове `endCall()` переход в состояние `DISCONNECTING` (событие `end-call` → `CALL.START_DISCONNECT`)
+- Из `DISCONNECTING` переход в `IDLE` при завершении отключения (события `ended` или `failed` → `CALL.RESET`)
 - Предотвращение недопустимых переходов с логированием
 
 ### MCUSession

@@ -41,6 +41,7 @@ export enum EEvent {
 
   // synthetic events
   START_CALL = 'start-call',
+  END_CALL = 'end-call',
   PEER_CONNECTION_CONFIRMED = 'peerconnection:confirmed',
   PEER_CONNECTION_ONTRACK = 'peerconnection:ontrack',
   ENDED_FROM_SERVER = 'ended:fromserver',
@@ -93,6 +94,7 @@ export const SESSION_JSSIP_EVENT_NAMES = [
 
 const SESSION_SYNTHETICS_EVENT_NAMES = [
   `${EEvent.START_CALL}`,
+  `${EEvent.END_CALL}`,
   `${EEvent.PEER_CONNECTION_CONFIRMED}`,
   `${EEvent.PEER_CONNECTION_ONTRACK}`,
   `${EEvent.ENDED_FROM_SERVER}`,
@@ -149,6 +151,7 @@ export type TEventMap = {
     number: string;
     answer: boolean;
   };
+  'end-call': never;
   'peerconnection:confirmed': RTCPeerConnection;
   'peerconnection:ontrack': RTCTrackEvent;
   'ended:fromserver': EndEvent;
