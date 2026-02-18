@@ -7,7 +7,7 @@ import type { TEffectiveQuality, TRecvQuality } from './quality';
 type TConferenceNumber = string;
 
 const SEND_OFFER_CALL_LIMIT = 10;
-const SEND_OFFER_DELAY_BETWEEN_CALLS = 100;
+const SEND_OFFER_DELAY_BETWEEN_CALLS = 500;
 
 type TSendOfferParams = {
   quality: TEffectiveQuality;
