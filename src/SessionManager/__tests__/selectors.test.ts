@@ -55,6 +55,8 @@ describe('sessionSelectors', () => {
         EConnectionStatus.CONNECTING,
         EConnectionStatus.CONNECTED,
         EConnectionStatus.REGISTERED,
+        EConnectionStatus.ESTABLISHED,
+        EConnectionStatus.DISCONNECTING,
         EConnectionStatus.DISCONNECTED,
       ];
 
@@ -297,6 +299,7 @@ describe('sessionSelectors', () => {
         EConnectionStatus.CONNECTED,
         EConnectionStatus.REGISTERED,
         EConnectionStatus.ESTABLISHED,
+        EConnectionStatus.DISCONNECTING,
         EConnectionStatus.DISCONNECTED,
       ];
       const activeCallStatuses = [
@@ -370,6 +373,19 @@ describe('sessionSelectors', () => {
       expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.DISCONNECTED);
     });
 
+    it('should return DISCONNECTING when connection is DISCONNECTING', () => {
+      const snapshot = createMockSnapshot({
+        connection: {
+          value: EConnectionStatus.DISCONNECTING,
+        } as never,
+        call: {
+          value: ECallStatus.IDLE,
+        } as never,
+      });
+
+      expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.DISCONNECTING);
+    });
+
     it('should return DISCONNECTED for IDLE/DISCONNECTED connection unless call is IN_ROOM', () => {
       const connectionStatuses = [EConnectionStatus.IDLE, EConnectionStatus.DISCONNECTED];
       const callStatusesForDisconnected = [ECallStatus.IDLE, ECallStatus.CONNECTING];
@@ -386,8 +402,25 @@ describe('sessionSelectors', () => {
       });
     });
 
-    it('should return CALL_ACTIVE when connection is DISCONNECTED but call is IN_ROOM', () => {
-      const connectionStatuses = [EConnectionStatus.IDLE, EConnectionStatus.DISCONNECTED];
+    it('should return DISCONNECTING for DISCONNECTING connection unless call is IN_ROOM', () => {
+      const callStatusesForDisconnecting = [ECallStatus.IDLE, ECallStatus.CONNECTING];
+
+      callStatusesForDisconnecting.forEach((callStatus) => {
+        const snapshot = createMockSnapshot({
+          connection: { value: EConnectionStatus.DISCONNECTING } as never,
+          call: { value: callStatus } as never,
+        });
+
+        expect(sessionSelectors.selectSystemStatus(snapshot)).toBe(ESystemStatus.DISCONNECTING);
+      });
+    });
+
+    it('should return CALL_ACTIVE when connection is IDLE/DISCONNECTING/DISCONNECTED but call is IN_ROOM', () => {
+      const connectionStatuses = [
+        EConnectionStatus.IDLE,
+        EConnectionStatus.DISCONNECTING,
+        EConnectionStatus.DISCONNECTED,
+      ];
 
       connectionStatuses.forEach((connectionStatus) => {
         const snapshot = createMockSnapshot({

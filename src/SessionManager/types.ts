@@ -38,6 +38,8 @@ export { EState as EConnectionStatus } from '@/ConnectionManager/ConnectionState
 export enum ESystemStatus {
   /** Система не инициализирована, соединение не установлено */
   DISCONNECTED = 'system:disconnected',
+  /** Идет процесс отключения (ожидание disconnected от UA) */
+  DISCONNECTING = 'system:disconnecting',
   /** Идет процесс подключения (preparing, connecting, connected, registered) */
   CONNECTING = 'system:connecting',
   /** Соединение установлено, готово к звонкам, но звонок не активен */

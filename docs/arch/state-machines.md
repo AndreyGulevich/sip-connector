@@ -235,19 +235,23 @@ stateDiagram-v2
 При определении комбинированного состояния применяется следующая логика приоритетов:
 
 1. **Состояние соединения имеет приоритет** — если соединение не установлено, звонок невозможен
-2. **Если connection IDLE/DISCONNECTING/DISCONNECTED** → `DISCONNECTED`
-3. **Если connection PREPARING/CONNECTING/CONNECTED/REGISTERED** → `CONNECTING` (независимо от состояния call)
-4. **Если connection ESTABLISHED**:
+2. **Если connection IDLE/DISCONNECTED** → `DISCONNECTED`
+3. **Если connection DISCONNECTING** → `DISCONNECTING`
+4. **Если connection PREPARING/CONNECTING/CONNECTED/REGISTERED** → `CONNECTING` (независимо от состояния call)
+5. **Если connection ESTABLISHED**:
    - call IDLE → `READY_TO_CALL`
    - call CONNECTING → `CALL_CONNECTING`
    - call PURGATORY, call P2P_ROOM, call DIRECT_P2P_ROOM или call IN_ROOM → `CALL_ACTIVE`
    - неизвестный call status → fallback `READY_TO_CALL`
 
+(При connection DISCONNECTING и call IN_ROOM приоритет у call → `CALL_ACTIVE`.)
+
 ### Состояния ESystemStatus
 
 | Состояние         | Описание                                 | Условия                                                                         |
 | :---------------- | :--------------------------------------- | :------------------------------------------------------------------------------ |
-| `DISCONNECTED`    | Система не подключена                    | connection: IDLE, DISCONNECTING или DISCONNECTED                                |
+| `DISCONNECTED`    | Система не подключена                    | connection: IDLE или DISCONNECTED                                               |
+| `DISCONNECTING`   | Идет процесс отключения                  | connection: DISCONNECTING                                                       |
 | `CONNECTING`      | Идет процесс подключения                 | connection: PREPARING, CONNECTING, CONNECTED или REGISTERED                     |
 | `READY_TO_CALL`   | Соединение установлено, готово к звонкам | connection: ESTABLISHED, call: IDLE                                             |
 | `CALL_CONNECTING` | Идет установка звонка                    | connection: ESTABLISHED, call: CONNECTING                                       |

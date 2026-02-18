@@ -65,6 +65,11 @@ const selectSystemStatus = (snapshot: TSessionSnapshot): ESystemStatus => {
     return ESystemStatus.DISCONNECTED;
   }
 
+  // Идет процесс отключения
+  if (connectionStatus === EConnectionStatus.DISCONNECTING) {
+    return ESystemStatus.DISCONNECTING;
+  }
+
   // Идет процесс подключения
   if (
     connectionStatus === EConnectionStatus.PREPARING ||
