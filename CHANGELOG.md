@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [26.0.0](https://github.com/Krivega/sip-connector/compare/v25.4.1...v26.0.0) (2026-02-18)
+
+### ⚠ BREAKING CHANGES
+
+- remove FAILED state handling from ConnectionStateMachine and related components
+
+### Features
+
+- add disconnecting state to ConnectionManager ([54de3ef](https://github.com/Krivega/sip-connector/commit/54de3ef9ae130b26baa1f3d8d0958b8143dd71bc))
+- add end-call event and DISCONNECTING state handling to CallManager ([70bca0d](https://github.com/Krivega/sip-connector/commit/70bca0d0f37700b352b737e9f679ee6b2899f8f6))
+- implement DISCONNECTING state in session management ([2713eb9](https://github.com/Krivega/sip-connector/commit/2713eb96838baa580010a245a42fc56dcaec8892))
+- refine DISCONNECTING state handling and context management ([36788a8](https://github.com/Krivega/sip-connector/commit/36788a821473aad8aac0d5a04e0115c422baa28e))
+
+### Bug Fixes
+
+- remove FAILED state handling from ConnectionStateMachine and related components ([42230eb](https://github.com/Krivega/sip-connector/commit/42230eb3763772699f65be4b5e9bd624a8cd7a1e))
+
 ### [25.4.1](https://github.com/Krivega/sip-connector/compare/v25.4.0...v25.4.1) (2026-02-18)
 
 ### Bug Fixes
