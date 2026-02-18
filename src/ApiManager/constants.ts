@@ -60,6 +60,8 @@ export enum EKeyHeader {
   MAIN_CAM_STATE = 'x-vinteo-maincam-state',
   MIC_STATE = 'x-vinteo-mic-state',
   CONTENT_PARTICIPANT_STATE = 'x-webrtc-partstate',
+  AUDIO_ID = 'x-webrtc-audioid',
+  SPECTATOR_MODE = 'x-webrtc-spectator-mode',
   NOTIFY = 'x-vinteo-notify',
   CONTENT_ENABLE_MEDIA_DEVICE = 'x-webrtc-request-enable-media-device',
   CONTENTED_STREAM_STATE = 'x-webrtc-share-state',
@@ -68,7 +70,6 @@ export enum EKeyHeader {
   AUDIO_TRACK_COUNT = 'x-webrtc-audio-track-count',
   VIDEO_TRACK_COUNT = 'x-webrtc-video-track-count',
   TRACKS_DIRECTION = 'x-webrtc-tracks-direction',
-  AUDIO_ID = 'x-webrtc-audioid',
   BEARER_TOKEN = 'x-bearer-token',
   IS_DIRECT_PEER_TO_PEER = 'x-webrtc-is-direct-p2p',
 }
@@ -98,6 +99,12 @@ export enum EContentSyncMediaState {
   ADMIN_SYNC_NOT_FORCED = '0',
 }
 
+export enum EContentSpectatorMode {
+  SPECTATOR_MANUAL = '0', // руками сделали зрителем
+  BY_STATE_CAM = '1', // на усмотрение (в зависимости от включения или выключения камеры)
+  SPECTATOR_FORCED = '2', // принудительно зрителем
+}
+
 export enum EContentUseLicense {
   AUDIO = 'AUDIO',
   VIDEO = 'VIDEO',
@@ -122,6 +129,7 @@ type THeaderValueMap = {
   [EKeyHeader.MAIN_CAM_STATE]: number;
   [EKeyHeader.MIC_STATE]: number;
   [EKeyHeader.CONTENT_PARTICIPANT_STATE]: EContentParticipantType;
+  [EKeyHeader.SPECTATOR_MODE]: EContentSpectatorMode;
   [EKeyHeader.NOTIFY]: string;
   [EKeyHeader.CONTENT_ENABLE_MEDIA_DEVICE]: string;
   [EKeyHeader.CONTENTED_STREAM_STATE]: EContentedStreamSendAndReceive;

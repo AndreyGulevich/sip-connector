@@ -9,6 +9,7 @@ import {
   EContentSyncMediaState,
   EContentParticipantType,
   EContentedStreamSendAndReceive,
+  EContentSpectatorMode,
 } from '../constants';
 import { getHeader } from '../getHeader';
 
@@ -540,6 +541,52 @@ describe('getHeader', () => {
     });
   });
 
+  describe('Enum headers - SPECTATOR_MODE', () => {
+    it('должен возвращать SPECTATOR_MANUAL для значения "0"', () => {
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '0');
+
+      const result = getHeader(
+        mockRequest as unknown as IncomingRequest,
+        EKeyHeader.SPECTATOR_MODE,
+      );
+
+      expect(result).toBe(EContentSpectatorMode.SPECTATOR_MANUAL);
+    });
+
+    it('должен возвращать BY_STATE_CAM для значения "1"', () => {
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '1');
+
+      const result = getHeader(
+        mockRequest as unknown as IncomingRequest,
+        EKeyHeader.SPECTATOR_MODE,
+      );
+
+      expect(result).toBe(EContentSpectatorMode.BY_STATE_CAM);
+    });
+
+    it('должен возвращать SPECTATOR_FORCED для значения "2"', () => {
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '2');
+
+      const result = getHeader(
+        mockRequest as unknown as IncomingRequest,
+        EKeyHeader.SPECTATOR_MODE,
+      );
+
+      expect(result).toBe(EContentSpectatorMode.SPECTATOR_FORCED);
+    });
+
+    it('должен возвращать undefined для неизвестного значения', () => {
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '3');
+
+      const result = getHeader(
+        mockRequest as unknown as IncomingRequest,
+        EKeyHeader.SPECTATOR_MODE,
+      );
+
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('Enum headers - CONTENTED_STREAM_STATE', () => {
     it('должен возвращать AVAILABLE_CONTENTED_STREAM для валидного значения', () => {
       mockRequest.setHeader(EKeyHeader.CONTENTED_STREAM_STATE, 'YOUCANRECEIVECONTENT');
@@ -917,6 +964,39 @@ describe('getHeader', () => {
         );
 
         expect(result).toBe(EContentParticipantType.PARTICIPANT);
+      });
+
+      it('SPECTATOR_MODE: должен обрабатывать "0" (SPECTATOR_MANUAL)', () => {
+        mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '0');
+
+        const result = getHeader(
+          mockRequest as unknown as IncomingRequest,
+          EKeyHeader.SPECTATOR_MODE,
+        );
+
+        expect(result).toBe(EContentSpectatorMode.SPECTATOR_MANUAL);
+      });
+
+      it('SPECTATOR_MODE: должен обрабатывать "1" (BY_STATE_CAM)', () => {
+        mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '1');
+
+        const result = getHeader(
+          mockRequest as unknown as IncomingRequest,
+          EKeyHeader.SPECTATOR_MODE,
+        );
+
+        expect(result).toBe(EContentSpectatorMode.BY_STATE_CAM);
+      });
+
+      it('SPECTATOR_MODE: должен обрабатывать "2" (SPECTATOR_FORCED)', () => {
+        mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, '2');
+
+        const result = getHeader(
+          mockRequest as unknown as IncomingRequest,
+          EKeyHeader.SPECTATOR_MODE,
+        );
+
+        expect(result).toBe(EContentSpectatorMode.SPECTATOR_FORCED);
       });
 
       it('CONTENTED_STREAM_STATE: должен обрабатывать youcanreceivecontent (lowercase)', () => {

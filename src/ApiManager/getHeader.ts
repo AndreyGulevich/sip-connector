@@ -8,6 +8,7 @@ import {
   EContentParticipantType,
   EContentUseLicense,
   EContentedStreamSendAndReceive,
+  EContentSpectatorMode,
 } from './constants';
 
 import type { IncomingRequest } from '@krivega/jssip';
@@ -114,6 +115,9 @@ export const getHeader = <T extends EKeyHeader>(
     }
     case EKeyHeader.CONTENT_PARTICIPANT_STATE: {
       return findEnumValue(EContentParticipantType, lowerValue) as EValueHeader<T> | undefined;
+    }
+    case EKeyHeader.SPECTATOR_MODE: {
+      return findEnumValue(EContentSpectatorMode, lowerValue) as EValueHeader<T> | undefined;
     }
     case EKeyHeader.CONTENTED_STREAM_STATE: {
       return findEnumValue(EContentedStreamSendAndReceive, lowerValue) as
