@@ -130,7 +130,7 @@ stateDiagram-v2
 
 ## Комбинированное состояние системы
 
-См. [ESystemStatus](./system-status.md) — механизм комбинирования состояний Connection и Call машин в единое состояние для упрощения работы клиентов.
+См. [ESystemStatus](./components/SessionManager/system-status.md) — механизм комбинирования состояний Connection и Call машин в единое состояние для упрощения работы клиентов.
 
 ## Тестирование
 

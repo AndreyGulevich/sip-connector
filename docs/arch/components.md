@@ -6,6 +6,7 @@
 
 ## Основные менеджеры
 
+- [SessionManager](./components/SessionManager/index.md) - Агрегатор состояний сеанса, единый интерфейс для работы с состояниями всех машин
 - [ConnectionManager](./components/ConnectionManager/index.md) - Управление SIP-соединениями и регистрацией на сервере
 - [ConnectionQueueManager](./components/ConnectionQueueManager/index.md) - Очередь операций подключения
 - [AutoConnectorManager](./components/AutoConnectorManager/index.md) - Автоматическое переподключение
