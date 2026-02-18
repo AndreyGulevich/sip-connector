@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [25.4.1](https://github.com/Krivega/sip-connector/compare/v25.4.0...v25.4.1) (2026-02-18)
+
+### Bug Fixes
+
+- transmit room between p2p participants ([#69](https://github.com/Krivega/sip-connector/issues/69)) ([e5f2f41](https://github.com/Krivega/sip-connector/commit/e5f2f4190080e21047b5800408887eaf32035c83))
+
 ## [25.4.0](https://github.com/Krivega/sip-connector/compare/v25.3.0...v25.4.0) (2026-02-17)
 
 ### Features
