@@ -95,14 +95,19 @@ export type TEventMap = {
   'participant:move-request-to-participants': Record<string, never>;
   'participant:move-request-to-spectators':
     | {
+        isAvailableSendingMedia: boolean;
         isSynthetic: true;
       }
     | {
+        isAvailableSendingMedia: boolean;
         isSynthetic: false;
         audioId: string;
       };
-  'participant:move-request-to-spectators-synthetic': Record<string, never>;
+  'participant:move-request-to-spectators-synthetic': {
+    isAvailableSendingMedia: boolean;
+  };
   'participant:move-request-to-spectators-with-audio-id': {
+    isAvailableSendingMedia: boolean;
     audioId: string;
   };
   'participation:accepting-word-request': TParametersModeratorsList;

@@ -846,10 +846,9 @@ describe('SipConnector', () => {
       );
 
       // Тригерим событие на уровне ApiManager
-      sipConnector.apiManager.events.trigger(
-        'participant:move-request-to-spectators-synthetic',
-        {},
-      );
+      sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+        isAvailableSendingMedia: true,
+      });
 
       expect(setCallRoleSpectatorSpy).toHaveBeenCalledTimes(1);
     });
@@ -864,10 +863,9 @@ describe('SipConnector', () => {
         .mockReturnValue(true);
 
       // Тригерим событие на уровне ApiManager
-      sipConnector.apiManager.events.trigger(
-        'participant:move-request-to-spectators-synthetic',
-        {},
-      );
+      sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+        isAvailableSendingMedia: true,
+      });
 
       // Ждем выполнения асинхронного вызова
       await Promise.resolve();
@@ -884,6 +882,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId,
         },
       );
@@ -909,6 +908,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId,
         },
       );
@@ -939,6 +939,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId,
         },
       );
@@ -986,6 +987,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId,
         },
       );
@@ -1024,6 +1026,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId: firstAudioId,
         },
       );
@@ -1038,6 +1041,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId: secondAudioId,
         },
       );
@@ -1052,6 +1056,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId: thirdAudioId,
         },
       );
@@ -1080,10 +1085,9 @@ describe('SipConnector', () => {
         .mockReturnValue(true);
 
       // Тригерим событие без запущенной презентации
-      sipConnector.apiManager.events.trigger(
-        'participant:move-request-to-spectators-synthetic',
-        {},
-      );
+      sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+        isAvailableSendingMedia: true,
+      });
 
       // Ждем выполнения асинхронного вызова
       await Promise.resolve();
@@ -1101,10 +1105,9 @@ describe('SipConnector', () => {
         .mockReturnValue(true);
 
       // Тригерим событие
-      sipConnector.apiManager.events.trigger(
-        'participant:move-request-to-spectators-synthetic',
-        {},
-      );
+      sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+        isAvailableSendingMedia: true,
+      });
 
       // Ждем выполнения асинхронного вызова
       await Promise.resolve();
@@ -1129,6 +1132,7 @@ describe('SipConnector', () => {
       sipConnector.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
         {
+          isAvailableSendingMedia: true,
           audioId,
         },
       );
@@ -1162,10 +1166,9 @@ describe('SipConnector', () => {
       it('должен триггерить событие stopped-presentation-by-server-command', async () => {
         sipConnector.on('stopped-presentation-by-server-command', handler);
 
-        sipConnector.apiManager.events.trigger(
-          'participant:move-request-to-spectators-synthetic',
-          {},
-        );
+        sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+          isAvailableSendingMedia: true,
+        });
 
         await Promise.resolve();
 
@@ -1179,10 +1182,9 @@ describe('SipConnector', () => {
 
         sipConnector.on('stopped-presentation-by-server-command', handler);
 
-        sipConnector.apiManager.events.trigger(
-          'participant:move-request-to-spectators-synthetic',
-          {},
-        );
+        sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+          isAvailableSendingMedia: true,
+        });
 
         await Promise.resolve();
 
@@ -1195,10 +1197,9 @@ describe('SipConnector', () => {
 
         sipConnector.on('stopped-presentation-by-server-command', handler);
 
-        sipConnector.apiManager.events.trigger(
-          'participant:move-request-to-spectators-synthetic',
-          {},
-        );
+        sipConnector.apiManager.events.trigger('participant:move-request-to-spectators-synthetic', {
+          isAvailableSendingMedia: true,
+        });
 
         await Promise.resolve();
 
@@ -1217,6 +1218,7 @@ describe('SipConnector', () => {
         sipConnector.apiManager.events.trigger(
           'participant:move-request-to-spectators-with-audio-id',
           {
+            isAvailableSendingMedia: true,
             audioId,
           },
         );
@@ -1238,6 +1240,7 @@ describe('SipConnector', () => {
         sipConnector.apiManager.events.trigger(
           'participant:move-request-to-spectators-with-audio-id',
           {
+            isAvailableSendingMedia: true,
             audioId,
           },
         );
@@ -1258,6 +1261,7 @@ describe('SipConnector', () => {
         sipConnector.apiManager.events.trigger(
           'participant:move-request-to-spectators-with-audio-id',
           {
+            isAvailableSendingMedia: true,
             audioId,
           },
         );
@@ -1555,7 +1559,7 @@ describe('SipConnector', () => {
       // Тригерим api-событие напрямую на уровне ApiManager
       sipConnectorWithMocks.apiManager.events.trigger(
         'participant:move-request-to-spectators-with-audio-id',
-        { audioId },
+        { isAvailableSendingMedia: true, audioId },
       );
 
       await Promise.resolve();

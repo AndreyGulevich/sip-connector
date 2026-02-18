@@ -13,6 +13,7 @@ import {
   EContentParticipantType,
   EContentedStreamSendAndReceive,
   EContentUseLicense,
+  EContentSpectatorMode,
 } from '../constants';
 
 import type { TJsSIP } from '@/types';
@@ -166,8 +167,15 @@ describe('ApiManager (NEW_INFO handling)', () => {
 
       callManager.events.trigger('newInfo', infoEvent);
       expect(spectatorOldSpy).not.toHaveBeenCalled();
-      expect(spectatorWithAudioIdSpy).toHaveBeenCalledWith({ audioId });
-      expect(spectatorSpy).toHaveBeenCalledWith({ isSynthetic: false, audioId });
+      expect(spectatorWithAudioIdSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        audioId,
+      });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: false,
+        audioId,
+      });
     });
 
     it('должен обрабатывать CHANNELS события', () => {
@@ -618,9 +626,12 @@ describe('ApiManager (NEW_INFO handling)', () => {
       const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
 
       callManager.events.trigger('newInfo', infoEvent);
-      expect(spectatorOldSpy).toHaveBeenCalledWith({});
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: true });
       expect(spectatorWithAudioIdSpy).not.toHaveBeenCalled();
-      expect(spectatorSpy).toHaveBeenCalledWith({ isSynthetic: true });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: true,
+      });
     });
 
     it('должен обрабатывать PARTICIPANT состояние', () => {
@@ -685,10 +696,169 @@ describe('ApiManager (NEW_INFO handling)', () => {
       const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
 
       callManager.events.trigger('newInfo', infoEvent);
-      expect(spectatorOldSpy).toHaveBeenCalledWith({});
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: true });
       expect(spectatorWithAudioIdSpy).not.toHaveBeenCalled();
-      expect(spectatorSpy).toHaveBeenCalledWith({ isSynthetic: true });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: true,
+      });
       expect(participantSpy).not.toHaveBeenCalled();
+    });
+
+    it('должен устанавливать isAvailableSendingMedia=true когда spectatorMode=BY_STATE_CAM', () => {
+      const spectatorOldSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+
+      apiManager.on('participant:move-request-to-spectators-synthetic', spectatorOldSpy);
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, EContentSpectatorMode.BY_STATE_CAM);
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: true });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: true,
+      });
+    });
+
+    it('должен устанавливать isAvailableSendingMedia=true когда spectatorMode=undefined', () => {
+      const spectatorOldSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+
+      apiManager.on('participant:move-request-to-spectators-synthetic', spectatorOldSpy);
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      // Не устанавливаем SPECTATOR_MODE header
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: true });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: true,
+      });
+    });
+
+    it('должен устанавливать isAvailableSendingMedia=false когда spectatorMode=SPECTATOR_MANUAL', () => {
+      const spectatorOldSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+
+      apiManager.on('participant:move-request-to-spectators-synthetic', spectatorOldSpy);
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, EContentSpectatorMode.SPECTATOR_MANUAL);
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: false });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: false,
+        isSynthetic: true,
+      });
+    });
+
+    it('должен устанавливать isAvailableSendingMedia=false когда spectatorMode=SPECTATOR_FORCED', () => {
+      const spectatorOldSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+
+      apiManager.on('participant:move-request-to-spectators-synthetic', spectatorOldSpy);
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, EContentSpectatorMode.SPECTATOR_FORCED);
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorOldSpy).toHaveBeenCalledWith({ isAvailableSendingMedia: false });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: false,
+        isSynthetic: true,
+      });
+    });
+
+    it('должен устанавливать isAvailableSendingMedia правильно для событий с audioId и BY_STATE_CAM', () => {
+      const spectatorWithAudioIdSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+      const audioId = '123';
+
+      apiManager.on(
+        'participant:move-request-to-spectators-with-audio-id',
+        spectatorWithAudioIdSpy,
+      );
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      mockRequest.setHeader(EKeyHeader.AUDIO_ID, audioId);
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, EContentSpectatorMode.BY_STATE_CAM);
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorWithAudioIdSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        audioId,
+      });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: true,
+        isSynthetic: false,
+        audioId,
+      });
+    });
+
+    it('должен устанавливать isAvailableSendingMedia правильно для событий с audioId и SPECTATOR_MANUAL', () => {
+      const spectatorWithAudioIdSpy = jest.fn();
+      const spectatorSpy = jest.fn();
+      const audioId = '123';
+
+      apiManager.on(
+        'participant:move-request-to-spectators-with-audio-id',
+        spectatorWithAudioIdSpy,
+      );
+      apiManager.on('participant:move-request-to-spectators', spectatorSpy);
+      mockRequest.setHeader(EKeyHeader.CONTENT_TYPE, EContentTypeReceived.PARTICIPANT_STATE);
+      mockRequest.setHeader(
+        EKeyHeader.CONTENT_PARTICIPANT_STATE,
+        EContentParticipantType.SPECTATOR,
+      );
+      mockRequest.setHeader(EKeyHeader.AUDIO_ID, audioId);
+      mockRequest.setHeader(EKeyHeader.SPECTATOR_MODE, EContentSpectatorMode.SPECTATOR_MANUAL);
+
+      const infoEvent = MockRequest.createInfoEvent('remote', mockRequest);
+
+      callManager.events.trigger('newInfo', infoEvent);
+      expect(spectatorWithAudioIdSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: false,
+        audioId,
+      });
+      expect(spectatorSpy).toHaveBeenCalledWith({
+        isAvailableSendingMedia: false,
+        isSynthetic: false,
+        audioId,
+      });
     });
   });
 });

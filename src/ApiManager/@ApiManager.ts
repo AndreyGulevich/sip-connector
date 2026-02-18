@@ -11,6 +11,7 @@ import {
   EContentParticipantType,
   EHeader,
   EKeyHeader,
+  EContentSpectatorMode,
 } from './constants';
 import { createEvents, EEvent } from './events';
 import { getHeader } from './getHeader';
@@ -590,16 +591,27 @@ class ApiManager {
   private readonly maybeTriggerParticipantMoveRequest = (request: IncomingRequest) => {
     const participantState = getHeader(request, EKeyHeader.CONTENT_PARTICIPANT_STATE);
     const audioId = getHeader(request, EKeyHeader.AUDIO_ID);
+    const spectatorMode = getHeader(request, EKeyHeader.SPECTATOR_MODE);
 
     if (participantState === EContentParticipantType.SPECTATOR) {
+      const isAvailableSendingMedia =
+        spectatorMode === EContentSpectatorMode.BY_STATE_CAM || spectatorMode === undefined;
+
       if (audioId === undefined) {
-        this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS_SYNTHETIC, {});
-        this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS, { isSynthetic: true });
+        this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS_SYNTHETIC, {
+          isAvailableSendingMedia,
+        });
+        this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS, {
+          isAvailableSendingMedia,
+          isSynthetic: true,
+        });
       } else {
         this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS_WITH_AUDIO_ID, {
+          isAvailableSendingMedia,
           audioId,
         });
         this.events.trigger(EEvent.PARTICIPANT_MOVE_REQUEST_TO_SPECTATORS, {
+          isAvailableSendingMedia,
           isSynthetic: false,
           audioId,
         });
