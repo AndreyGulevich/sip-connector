@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [26.1.1](https://github.com/Krivega/sip-connector/compare/v26.1.0...v26.1.1) (2026-02-19)
+
+### Bug Fixes
+
+- improve peer connection readiness checks ([8bd7d66](https://github.com/Krivega/sip-connector/commit/8bd7d6639491bf27a35434257b7fe2cc6164dffc))
+
 ## [26.1.0](https://github.com/Krivega/sip-connector/compare/v26.0.0...v26.1.0) (2026-02-18)
 
 ### Features
