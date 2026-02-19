@@ -44,7 +44,6 @@
 | `call:peerconnection:ontrack`                    | Генерируется при получении нового медиа-трека                       | `RTCTrackEvent`                                   |
 | `call:ended:fromserver`                          | Генерируется при завершении звонка от сервера                       | `EndEvent`                                        |
 | `call:call-status-changed`                       | Генерируется при изменении статуса звонка                           | `{ isCallActive: boolean }`                       |
-| `call:enter-room`                                | Генерируется при появлении или изменении информации о комнате       | `TEnterRoomEvent`                                 |
 | `call:remote-tracks-changed`                     | Генерируется при изменении треков в удаленных медиа-потоках         | `TRemoteTracksChangedEvent`                       |
 | `call:remote-streams-changed`                    | Генерируется при изменении удаленных медиа-потоков                  | `{ streams: TRemoteStreams }`                     |
 | `call:recv-session-started`                      | Генерируется при успешном запуске recv-сессии (режим зрителя)       | `never`                                           |
@@ -52,20 +51,6 @@
 | `call:recv-quality-changed`                      | Результат изменения качества приема (только режим зрителя)          | `TRecvQualityChangedEvent`                        |
 
 ## Структуры данных
-
-### `TEnterRoomEvent` (событие `call:enter-room`)
-
-```typescript
-{
-  room: string;
-  participantName: string;
-  isInPurgatory: boolean;
-  isP2PRoom: boolean;
-  isDirectP2PRoom: boolean;
-}
-```
-
-Флаги `isInPurgatory`, `isP2PRoom`, `isDirectP2PRoom` соответствуют типу текущей комнаты в машине состояний звонка (PURGATORY, P2P_ROOM, DIRECT_P2P_ROOM, IN_ROOM). Событие эмитится при каждом переходе в одно из этих состояний или при смене комнаты внутри них.
 
 ### `TRemoteTracksChangedEvent` (событие `call:remote-tracks-changed`)
 

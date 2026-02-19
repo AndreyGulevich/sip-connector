@@ -110,7 +110,6 @@ class CallManager {
     });
 
     this.subscribeCallStatusChange();
-    this.subscribeEnterRoom();
     this.subscribeMcuRemoteTrackEvents();
     this.subscribeContentedStreamEvents();
   }
@@ -360,35 +359,6 @@ class CallManager {
 
       prevIsCallActive = nextIsCallActive;
     };
-  }
-
-  private subscribeEnterRoom(): void {
-    const roomStates = new Set<EState>([
-      EState.PURGATORY,
-      EState.P2P_ROOM,
-      EState.DIRECT_P2P_ROOM,
-      EState.IN_ROOM,
-    ]);
-
-    this.stateMachine.onStateChange((state) => {
-      if (roomStates.has(state)) {
-        const {
-          isInPurgatory,
-          isP2PRoom,
-          isDirectP2PRoom,
-          room = '',
-          participantName = '',
-        } = this.stateMachine;
-
-        this.events.trigger(EEvent.ENTER_ROOM, {
-          room,
-          participantName,
-          isInPurgatory,
-          isP2PRoom,
-          isDirectP2PRoom,
-        });
-      }
-    });
   }
 
   private subscribeMcuRemoteTrackEvents() {

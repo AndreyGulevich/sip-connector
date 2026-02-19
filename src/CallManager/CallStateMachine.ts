@@ -427,26 +427,6 @@ export class CallStateMachine extends BaseStateMachine<typeof callMachine, EStat
     return this.isInRoom || this.isInPurgatory || this.isP2PRoom || this.isDirectP2PRoom;
   }
 
-  public get room() {
-    const { context } = this;
-
-    if ('room' in context) {
-      return context.room;
-    }
-
-    return undefined;
-  }
-
-  public get participantName() {
-    const { context } = this;
-
-    if ('participantName' in context) {
-      return context.participantName;
-    }
-
-    return undefined;
-  }
-
   public get number() {
     const { context } = this;
 
