@@ -36,8 +36,7 @@ type TDomIds = {
   callStatsAudioId: string;
   callStatsMainStreamId: string;
   callStatsContentedStreamId: string;
-  recvQualitySelectId: string;
-  applyRecvQualityButtonId: string;
+  recvQualityRadiosId: string;
   recvQualityStatusId: string;
   logsContainerId: string;
   logsListId: string;
@@ -178,9 +177,7 @@ class DOM {
 
   public callStatsContentedStreamElement: HTMLElement;
 
-  public recvQualitySelectElement: HTMLSelectElement;
-
-  public applyRecvQualityButtonElement: HTMLButtonElement;
+  public recvQualityRadiosElement: HTMLFieldSetElement;
 
   public recvQualityStatusElement: HTMLElement;
 
@@ -237,8 +234,7 @@ class DOM {
     callStatsAudioId,
     callStatsMainStreamId,
     callStatsContentedStreamId,
-    recvQualitySelectId,
-    applyRecvQualityButtonId,
+    recvQualityRadiosId,
     recvQualityStatusId,
     logsContainerId,
     logsListId,
@@ -336,9 +332,7 @@ class DOM {
     this.callStatsAudioElement = getElementById(callStatsAudioId);
     this.callStatsMainStreamElement = getElementById(callStatsMainStreamId);
     this.callStatsContentedStreamElement = getElementById(callStatsContentedStreamId);
-    this.recvQualitySelectElement = getElementById<HTMLSelectElement>(recvQualitySelectId);
-    this.applyRecvQualityButtonElement =
-      getElementById<HTMLButtonElement>(applyRecvQualityButtonId);
+    this.recvQualityRadiosElement = getElementById<HTMLFieldSetElement>(recvQualityRadiosId);
     this.recvQualityStatusElement = getElementById(recvQualityStatusId);
     this.logsContainerElement = getElementById(logsContainerId);
     this.logsListElement = getElementById(logsListId);
@@ -471,8 +465,7 @@ export const dom = new DOM({
   callStatsAudioId: 'callStatsAudio',
   callStatsMainStreamId: 'callStatsMainStream',
   callStatsContentedStreamId: 'callStatsContentedStream',
-  recvQualitySelectId: 'recvQualitySelect',
-  applyRecvQualityButtonId: 'applyRecvQualityButton',
+  recvQualityRadiosId: 'recvQualityRadios',
   recvQualityStatusId: 'recvQualityStatus',
   logsContainerId: 'logsContainer',
   logsListId: 'logsList',

@@ -1,13 +1,23 @@
 import { dom } from '../dom';
 import sipConnectorFacade from './sipConnectorFacade';
 
-import type { TEffectiveQuality, TRecvQuality } from '@/index';
+import type { TRecvQuality } from '@/index';
 
-type TRecvQualityChangedEvent = {
-  effectiveQuality: TEffectiveQuality;
-  previousQuality: TRecvQuality;
-  quality: TRecvQuality;
-};
+function getCheckedRecvQuality(container: HTMLFieldSetElement): TRecvQuality | undefined {
+  const input = container.querySelector<HTMLInputElement>('input[name="recvQuality"]:checked');
+
+  return input?.value as TRecvQuality | undefined;
+}
+
+function setCheckedRecvQuality(container: HTMLFieldSetElement, quality?: TRecvQuality): void {
+  const input = container.querySelector<HTMLInputElement>(
+    `input[name="recvQuality"][value="${quality}"]`,
+  );
+
+  if (input) {
+    input.checked = true;
+  }
+}
 
 class RecvQualityManager {
   private unsubscribeQualityChanged?: () => void;
@@ -15,7 +25,7 @@ class RecvQualityManager {
   private unsubscribeRecvSessionStarted?: () => void;
 
   public subscribe(): void {
-    dom.applyRecvQualityButtonElement.addEventListener('click', this.handleApplyClick);
+    dom.recvQualityRadiosElement.addEventListener('change', this.handleChange);
     this.unsubscribeQualityChanged = sipConnectorFacade.on(
       'call:recv-quality-changed',
       this.handleQualityChanged,
@@ -27,7 +37,7 @@ class RecvQualityManager {
   }
 
   public unsubscribe(): void {
-    dom.applyRecvQualityButtonElement.removeEventListener('click', this.handleApplyClick);
+    dom.recvQualityRadiosElement.removeEventListener('change', this.handleChange);
     this.unsubscribeQualityChanged?.();
     this.unsubscribeQualityChanged = undefined;
     this.unsubscribeRecvSessionStarted?.();
@@ -36,38 +46,46 @@ class RecvQualityManager {
 
   // eslint-disable-next-line @typescript-eslint/class-methods-use-this
   public reset(): void {
-    dom.recvQualitySelectElement.value = 'auto';
+    setCheckedRecvQuality(dom.recvQualityRadiosElement, 'auto');
     dom.recvQualityStatusElement.textContent = '';
   }
 
   // eslint-disable-next-line @typescript-eslint/class-methods-use-this
   private readonly syncCurrentQuality = (prefix = 'Текущее'): void => {
     const recvQuality = sipConnectorFacade.sipConnector.getRecvQuality();
+    const quality = recvQuality?.quality;
 
-    dom.recvQualitySelectElement.value = recvQuality?.quality ?? 'undefined';
+    setCheckedRecvQuality(dom.recvQualityRadiosElement, quality);
     dom.recvQualityStatusElement.textContent = `${prefix}: ${recvQuality?.quality} (${recvQuality?.effectiveQuality})`;
   };
 
-  private readonly handleApplyClick = (): void => {
-    const quality = dom.recvQualitySelectElement.value as TRecvQuality;
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this
+  private readonly handleChange = (): void => {
+    const quality = getCheckedRecvQuality(dom.recvQualityRadiosElement);
+
+    if (quality === undefined) {
+      return;
+    }
+
+    dom.recvQualityRadiosElement.classList.add('disabled');
 
     sipConnectorFacade.sipConnector
       .setRecvQuality(quality)
       .then((applied) => {
-        if (applied) {
-          this.syncCurrentQuality('Применено');
-        } else {
+        if (!applied) {
           dom.recvQualityStatusElement.textContent = `Не применено: ${quality}`;
         }
       })
       .catch(() => {
         dom.recvQualityStatusElement.textContent = 'Ошибка применения качества';
+      })
+      .finally(() => {
+        dom.recvQualityRadiosElement.classList.remove('disabled');
       });
   };
 
-  // eslint-disable-next-line @typescript-eslint/class-methods-use-this
-  private readonly handleQualityChanged = (event: TRecvQualityChangedEvent): void => {
-    dom.recvQualityStatusElement.textContent = `Применено: ${event.quality} (${event.effectiveQuality})`;
+  private readonly handleQualityChanged = (): void => {
+    this.syncCurrentQuality('Применено');
   };
 }
 

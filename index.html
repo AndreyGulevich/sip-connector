@@ -152,16 +152,13 @@
 
         <section>
           <h3>Качество приема (зритель)</h3>
-          <label for="recvQualitySelect">
-            Качество
-            <select id="recvQualitySelect" name="recvQualitySelect">
-              <option value="auto" selected>auto</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-            </select>
-          </label>
-          <button id="applyRecvQualityButton" type="button">Применить</button>
+          <fieldset id="recvQualityRadios" class="recv-quality-radios">
+            <legend>Качество</legend>
+            <label><input type="radio" name="recvQuality" value="auto" checked /> auto</label>
+            <label><input type="radio" name="recvQuality" value="high" /> high</label>
+            <label><input type="radio" name="recvQuality" value="medium" /> medium</label>
+            <label><input type="radio" name="recvQuality" value="low" /> low</label>
+          </fieldset>
           <div id="recvQualityStatus" class="status-box"></div>
         </section>
 
