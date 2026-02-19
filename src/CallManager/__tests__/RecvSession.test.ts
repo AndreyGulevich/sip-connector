@@ -605,7 +605,7 @@ describe('RecvSession', () => {
       expect(pc.signalingState).toBe('stable');
     });
 
-    it('waitForStableSignalingState: handler резолвит при переходе в stable по signalingstatechange', async () => {
+    it('waitForPeerConnectionReady: handler резолвит при переходе в ready по signalingstatechange', async () => {
       const config = createConfig();
       const tools = createTools();
       const session = new RecvSession(config, tools);
@@ -621,7 +621,7 @@ describe('RecvSession', () => {
           resolveSetRemote = r;
         });
         // Не меняем state — оставляем have-local-offer. setTimeout(0) откладывает dispatch
-        // после выполнения performRenegotiate -> waitForStableSignalingState (подписка handler)
+        // после выполнения performRenegotiate -> waitForPeerConnectionReady (подписка handler)
         setTimeout(() => {
           pc.signalingState = 'stable';
           pc.dispatchEvent(new Event('signalingstatechange'));
@@ -642,7 +642,7 @@ describe('RecvSession', () => {
       );
     });
 
-    it('waitForStableSignalingState: handler продолжает ждать при signalingstatechange без stable', async () => {
+    it('waitForPeerConnectionReady: handler продолжает ждать при signalingstatechange без ready', async () => {
       const config = createConfig();
       const tools = createTools();
       const session = new RecvSession(config, tools);
@@ -674,7 +674,37 @@ describe('RecvSession', () => {
       await expect(renegotiatePromise).resolves.toBe(true);
     });
 
-    it('выбрасывает ошибку по таймауту waitForStableSignalingState', async () => {
+    it('waitForPeerConnectionReady: не таймаутится, если ready наступил до подписки на listener', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+
+      pc.signalingState = 'have-local-offer';
+
+      const originalAddEventListener = pc.addEventListener.bind(pc);
+      const addEventListenerSpy = jest
+        .spyOn(pc, 'addEventListener')
+        .mockImplementation((type, listener, options) => {
+          // Эмулируем гонку: stable + dispatch происходят до фактической подписки.
+          pc.signalingState = 'stable';
+          pc.dispatchEvent(new Event('signalingstatechange'));
+
+          originalAddEventListener(type, listener, options);
+        });
+
+      try {
+        const waitPromise = (
+          session as unknown as { waitForPeerConnectionReady: () => Promise<void> }
+        ).waitForPeerConnectionReady();
+
+        await expect(waitPromise).resolves.toBeUndefined();
+      } finally {
+        addEventListenerSpy.mockRestore();
+      }
+    });
+
+    it('выбрасывает ошибку по таймауту waitForPeerConnectionReady', async () => {
       jest.useFakeTimers();
 
       try {
@@ -692,7 +722,7 @@ describe('RecvSession', () => {
 
         const renegotiatePromise = session.renegotiate(params);
 
-        // Даём промису время дойти до waitForStableSignalingState
+        // Даём промису время дойти до waitForPeerConnectionReady
         await Promise.resolve();
 
         // Присоединяем expect ДО advance timers — при срабатывании таймаута rejection
@@ -700,10 +730,10 @@ describe('RecvSession', () => {
         // Без await: иначе deadlock — ждали бы rejection до advance, но rejection — после advance
         // eslint-disable-next-line jest/valid-expect
         const expectPromise = expect(renegotiatePromise).rejects.toThrow(
-          'Timed out waiting for stable signaling state',
+          'Timed out waiting for stable signaling state and ready connection state',
         );
 
-        // Advance timers на 5000ms — сработает таймаут waitForStableSignalingState
+        // Advance timers на 5000ms — сработает таймаут waitForPeerConnectionReady
         await jest.advanceTimersByTimeAsync(5000);
 
         await expectPromise;
@@ -711,6 +741,98 @@ describe('RecvSession', () => {
         // Всегда очищаем fake timers, даже если тест упал
         jest.useRealTimers();
       }
+    });
+
+    it('waitForPeerConnectionReady: reject при connectionState failed до ожидания', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+
+      pc.signalingState = 'have-local-offer';
+      pc.connectionState = 'failed';
+
+      const waitPromise = (
+        session as unknown as { waitForPeerConnectionReady: () => Promise<void> }
+      ).waitForPeerConnectionReady();
+
+      await expect(waitPromise).rejects.toThrow(
+        'Peer connection in terminal state: failed. Recovery is not possible.',
+      );
+    });
+
+    it('waitForPeerConnectionReady: reject при connectionState closed до ожидания', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+
+      pc.signalingState = 'have-local-offer';
+      pc.connectionState = 'closed';
+
+      const waitPromise = (
+        session as unknown as { waitForPeerConnectionReady: () => Promise<void> }
+      ).waitForPeerConnectionReady();
+
+      await expect(waitPromise).rejects.toThrow(
+        'Peer connection in terminal state: closed. Recovery is not possible.',
+      );
+    });
+
+    it('waitForPeerConnectionReady: reject при terminal state между подпиской и проверкой', async () => {
+      const config = createConfig();
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+
+      pc.signalingState = 'have-local-offer';
+      pc.connectionState = 'connecting';
+
+      const originalAddEventListener = pc.addEventListener.bind(pc);
+
+      jest.spyOn(pc, 'addEventListener').mockImplementation((type, listener, options) => {
+        if (type === 'connectionstatechange') {
+          pc.connectionState = 'failed';
+        }
+
+        originalAddEventListener(type, listener, options);
+      });
+
+      const waitPromise = (
+        session as unknown as { waitForPeerConnectionReady: () => Promise<void> }
+      ).waitForPeerConnectionReady();
+
+      await expect(waitPromise).rejects.toThrow(
+        'Peer connection in terminal state: failed. Recovery is not possible.',
+      );
+    });
+
+    it('waitForPeerConnectionReady: reject при переходе connectionState в failed во время ожидания', async () => {
+      const config = createConfig();
+      let resolveSetRemote!: () => void;
+      const tools = createTools();
+      const session = new RecvSession(config, tools);
+      const pc = session.peerConnection as RTCPeerConnectionMock;
+      const params = { conferenceNumber: '123', token: 'test-token' };
+
+      pc.setRemoteDescription.mockImplementationOnce(async () => {
+        await new Promise<void>((r) => {
+          resolveSetRemote = r;
+        });
+        setTimeout(() => {
+          pc.connectionState = 'failed';
+          pc.dispatchEvent(new Event('connectionstatechange'));
+        }, 0);
+      });
+
+      const renegotiatePromise = session.renegotiate(params);
+
+      await delayPromise(0);
+      resolveSetRemote();
+
+      await expect(renegotiatePromise).rejects.toThrow(
+        'Peer connection in terminal state: failed. Recovery is not possible.',
+      );
     });
   });
 

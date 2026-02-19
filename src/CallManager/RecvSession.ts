@@ -10,8 +10,8 @@ type TConferenceNumber = string;
 const SEND_OFFER_CALL_LIMIT = 10;
 /** Задержка между повторными попытками отправки offer (мс) */
 const SEND_OFFER_DELAY_BETWEEN_CALLS = 500;
-/** Таймаут ожидания перехода signalingState в 'stable' (мс) */
-const WAIT_FOR_STABLE_SIGNALING_STATE_TIMEOUT = 5000;
+/** Таймаут ожидания готовности peer connection (signalingState stable + connectionState ready) (мс) */
+const PEER_CONNECTION_READY_TIMEOUT = 5000;
 
 type TSendOfferParams = {
   quality: TEffectiveQuality;
@@ -229,13 +229,13 @@ class RecvSession {
   private async performRenegotiate({ conferenceNumber, token }: TCallParams): Promise<boolean> {
     // Если после отмены предыдущего renegotiate состояние застряло в 'have-local-offer',
     // откатываем его в 'stable' для корректного старта нового negotiation
-    if (this.connection.signalingState === 'have-local-offer') {
+    if (this.hasHaveLocalOfferSignalingState()) {
       await this.connection.setLocalDescription({ type: 'rollback' });
     }
 
-    // Ждём stable state перед началом нового negotiation
+    // Ждём готовности peer connection перед началом нового negotiation
     // Это гарантирует, что предыдущий setRemoteDescription полностью завершён
-    await this.waitForStableSignalingState();
+    await this.waitForPeerConnectionReady();
 
     const offer = await this.createOffer();
 
@@ -279,11 +279,11 @@ class RecvSession {
     // Устанавливаем полученный answer от сервера
     await this.setRemoteDescription(result);
 
-    // КРИТИЧНО: ждём stable state перед возвратом
+    // КРИТИЧНО: ждём готовности peer connection перед возвратом
     // Это гарантирует, что setRemoteDescription полностью применён и RTCPeerConnection
     // готов к приёму медиа-потоков. Без этого ожидания возможны зависания потоков
     // при быстрых последовательных вызовах setQuality -> renegotiate -> setRemoteDescription
-    await this.waitForStableSignalingState();
+    await this.waitForPeerConnectionReady();
 
     return true;
   }
@@ -307,50 +307,140 @@ class RecvSession {
     return this.connection.setRemoteDescription(description);
   }
 
+  private hasStableSignalingState() {
+    return this.connection.signalingState === 'stable';
+  }
+
   /**
-   * Ожидает перехода RTCPeerConnection в состояние 'stable'.
+   * connectionState 'connected' — ICE соединение установлено (после setRemoteDescription).
+   * connectionState 'new' — допустимо до первого negotiation (при начале performRenegotiate).
+   */
+  private hasReadyConnectionState() {
+    const state = this.connection.connectionState;
+
+    return state === 'connected' || state === 'new';
+  }
+
+  /** connectionState 'failed' или 'closed' — финальные ошибки, восстановление невозможно */
+  private hasTerminalConnectionState() {
+    const state = this.connection.connectionState;
+
+    return state === 'failed' || state === 'closed';
+  }
+
+  private isStableAndReady() {
+    return this.hasStableSignalingState() && this.hasReadyConnectionState();
+  }
+
+  private hasHaveLocalOfferSignalingState() {
+    return this.connection.signalingState === 'have-local-offer';
+  }
+
+  /**
+   * Ожидает перехода RTCPeerConnection в состояние 'stable' (signalingState) и готовности connectionState.
+   *
+   * connectionState 'connected' — ICE соединение установлено (после setRemoteDescription).
+   * connectionState 'new' — допустимо до первого negotiation (при начале performRenegotiate).
+   * connectionState 'failed' | 'closed' — немедленный reject, восстановление невозможно.
+   * connectionState 'connecting' | 'disconnected' — ожидаем перехода в connected или таймаут.
    *
    * Используется для синхронизации операций пересогласования:
    * - В начале performRenegotiate: гарантирует завершение предыдущего setRemoteDescription
-   * - В конце performRenegotiate: гарантирует применение текущего setRemoteDescription
+   * - В конце performRenegotiate: гарантирует применение setRemoteDescription и установку ICE-соединения
    *
    * Алгоритм:
-   * 1. Если уже stable - возвращаемся немедленно
-   * 2. Иначе подписываемся на событие signalingstatechange
-   * 3. При переходе в stable - очищаем таймер и listener, резолвим промис
-   * 4. При таймауте (5 сек) - очищаем listener и реджектим промис
+   * 1. Если уже stable и ready — возвращаемся немедленно
+   * 2. Если connectionState 'failed' или 'closed' — reject немедленно
+   * 3. Подписываемся на signalingstatechange и connectionstatechange
+   * 4. При достижении обоих условий — resolve
+   * 5. При transition в failed/closed — reject
+   * 6. При таймауте — reject
    *
-   * @throws Error если состояние не перешло в stable за WAIT_FOR_STABLE_SIGNALING_STATE_TIMEOUT мс
+   * @throws Error если состояния не достигнуты или connection перешёл в failed/closed
    */
-  private async waitForStableSignalingState(): Promise<void> {
-    // Оптимизация: если уже stable, не создаём промис и не подписываемся на события
-    if (this.connection.signalingState === 'stable') {
+  private async waitForPeerConnectionReady(): Promise<void> {
+    if (this.isStableAndReady()) {
       return;
+    }
+
+    const getErrorByState = () => {
+      const state = this.connection.connectionState;
+
+      return new Error(`Peer connection in terminal state: ${state}. Recovery is not possible.`);
+    };
+
+    const check = (): 'loading' | 'success' | 'error' => {
+      if (this.hasTerminalConnectionState()) {
+        return 'error';
+      }
+
+      if (this.isStableAndReady()) {
+        return 'success';
+      }
+
+      return 'loading';
+    };
+
+    if (check() === 'error') {
+      throw getErrorByState();
     }
 
     return new Promise<void>((resolve, reject) => {
       let timeout: ReturnType<typeof setTimeout>;
-
-      // Обработчик события изменения signaling state
-      const handler = (): void => {
-        if (this.connection.signalingState === 'stable') {
-          clearTimeout(timeout);
-          this.connection.removeEventListener('signalingstatechange', handler);
-          resolve();
+      let isSettled = false;
+      const resolveOnce = (): void => {
+        if (isSettled) {
+          return;
         }
-        // Если state изменился, но не в stable (например, 'have-remote-offer'),
-        // продолжаем ждать следующего события
+
+        isSettled = true;
+        clearTimeout(timeout);
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        this.connection.removeEventListener('signalingstatechange', checkAndResolve);
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        this.connection.removeEventListener('connectionstatechange', checkAndResolve);
+        resolve();
       };
 
-      // Таймаут на случай, если состояние не перейдёт в stable
-      // (может произойти при проблемах с сетью или сервером)
-      timeout = setTimeout(() => {
-        this.connection.removeEventListener('signalingstatechange', handler);
-        reject(new Error('Timed out waiting for stable signaling state'));
-      }, WAIT_FOR_STABLE_SIGNALING_STATE_TIMEOUT);
+      const rejectOnce = (error: Error): void => {
+        /* istanbul ignore if: defensive guard, second caller after settle */
+        if (isSettled) {
+          return;
+        }
 
-      // Подписываемся на события изменения signaling state
-      this.connection.addEventListener('signalingstatechange', handler);
+        isSettled = true;
+        clearTimeout(timeout);
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        this.connection.removeEventListener('signalingstatechange', checkAndResolve);
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        this.connection.removeEventListener('connectionstatechange', checkAndResolve);
+        reject(error);
+      };
+
+      function checkAndResolve(): void {
+        const result = check();
+
+        if (result === 'error') {
+          rejectOnce(getErrorByState());
+
+          return;
+        }
+
+        if (result === 'success') {
+          resolveOnce();
+        }
+      }
+
+      timeout = setTimeout(() => {
+        rejectOnce(
+          new Error('Timed out waiting for stable signaling state and ready connection state'),
+        );
+      }, PEER_CONNECTION_READY_TIMEOUT);
+
+      this.connection.addEventListener('signalingstatechange', checkAndResolve);
+      this.connection.addEventListener('connectionstatechange', checkAndResolve);
+
+      checkAndResolve();
     });
   }
 
