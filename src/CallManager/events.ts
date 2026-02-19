@@ -51,6 +51,7 @@ export enum EEvent {
   RECV_SESSION_STARTED = 'recv-session-started',
   RECV_SESSION_ENDED = 'recv-session-ended',
   RECV_QUALITY_CHANGED = 'recv-quality-changed',
+  ENTER_ROOM = 'enter-room',
 }
 
 export enum Originator {
@@ -104,6 +105,7 @@ const SESSION_SYNTHETICS_EVENT_NAMES = [
   `${EEvent.RECV_SESSION_STARTED}`,
   `${EEvent.RECV_SESSION_ENDED}`,
   `${EEvent.RECV_QUALITY_CHANGED}`,
+  `${EEvent.ENTER_ROOM}`,
 ] as const;
 
 export const EVENT_NAMES = [
@@ -156,6 +158,13 @@ export type TEventMap = {
   'peerconnection:ontrack': RTCTrackEvent;
   'ended:fromserver': EndEvent;
   'call-status-changed': { isCallActive: boolean };
+  'enter-room': {
+    room: string;
+    participantName: string;
+    isInPurgatory: boolean;
+    isP2PRoom: boolean;
+    isDirectP2PRoom: boolean;
+  };
   'remote-tracks-changed': {
     streams: TRemoteStreams;
     changeType: TRemoteTracksChangeType;
