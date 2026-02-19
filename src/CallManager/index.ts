@@ -11,4 +11,4 @@ export type { TCustomError, TGetUri, TOnAddedTransceiver, TRemoteStreams } from 
 export type { TEventMap as TCallManagerEventMap, TEvents as TCallEvents } from './events';
 export type { TEffectiveQuality, TRecvQuality } from './quality';
 export type { TSnapshot as TCallSnapshot } from './CallStateMachine';
-export { CallStateMachine } from './CallStateMachine';
+export type { CallStateMachine } from './CallStateMachine';
