@@ -18,7 +18,7 @@ class RTCPeerConnectionMock extends EventTarget implements RTCPeerConnectionDepr
 
   public canTrickleIceCandidates!: boolean | null;
 
-  public connectionState!: RTCPeerConnectionState;
+  public connectionState: RTCPeerConnectionState = 'new';
 
   public currentLocalDescription!: RTCSessionDescription | null;
 
@@ -80,7 +80,9 @@ class RTCPeerConnectionMock extends EventTarget implements RTCPeerConnectionDepr
   public setRemoteDescription = jest.fn(
     async (_description: RTCSessionDescriptionInit): Promise<void> => {
       this.signalingState = 'stable';
+      this.connectionState = 'connected';
       this.dispatchEvent(new Event('signalingstatechange'));
+      this.dispatchEvent(new Event('connectionstatechange'));
     },
   );
 
